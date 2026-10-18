@@ -1,0 +1,536 @@
+---
+title: "population_genetics_data"
+author: "YIHAN"
+format: html
+editor: visual
+---
+
+# Population genetics
+
+This analysis uses the genotype data and GWAS beta values. I calculated a PRS for each participant. I then compared PD cases and healthy controls.
+
+# Question 1: Step1-Step6
+
+Calculate a PRS for each participant. Which participant has the highest PRS? The lowest?
+
+## Step 1: Load packages and data
+
+```{r}
+# Load packages for data analysis and plots.
+library(tidyverse)
+# Load the genotype and GWAS data.
+load("prs.Rda")
+```
+
+Check the two datasets. Make sure the locus names can be matched.
+
+```{r}
+# Check the participant genotype data.
+ca_co_genotypes
+```
+
+```{r}
+# Check the GWAS beta values.
+gwas_top_hits
+```
+
+## Step 2: Reshape the genotype data
+
+```{r}
+# Change the genotype data from wide to long format.
+prs_long <- ca_co_genotypes %>% 
+  pivot_longer( 
+    # Select the 15 locus columns.
+    cols = starts_with("locus_"),
+    # Create a column for locus names.
+    names_to = "locus",
+    # Create a column for allele dosage.
+    values_to = "dosage" 
+    ) 
+```
+
+```{r}
+# Check the new data format.
+prs_long
+```
+
+## Step 3: Add the GWAS beta values
+
+```{r}
+# Add GWAS beta values to the genotype data.
+prs_long_new <- prs_long %>%  
+  left_join(  
+    # Keep locus and beta.
+    gwas_top_hits %>% select(locus, beta),
+    # Match using the locus name.
+    by = "locus"  
+  )
+```
+
+```{r}
+# Check for missing beta values after joining the datasets.
+prs_long_new %>%
+  summarise(missing_beta = sum(is.na(beta)))
+```
+
+**Result interpretation:**
+
+A result of 0 means there are no missing beta values in prs_long_new. Every row has a beta value, so the dataset is ready for the next step of PRS calculation.
+
+```{r}
+# Check the joined data.
+prs_long_new 
+```
+
+## Step 4: Calculate the score for each locus
+
+```{r}
+# Dosage is coded as 0, 1 or 2 for each locus.
+# Multiply the dosage by the GWAS beta value.
+prs_weighted <- prs_long_new %>%  
+  # Calculate the weighted score for each locus.
+  mutate(weighted_risk = dosage * beta)  
+```
+
+```{r}
+# Check the weighted scores.
+prs_weighted
+```
+
+## Step 5: Calculate one PRS per participant
+
+```{r}
+# Add the weighted scores across all 15 loci.
+# Use the weighted data.
+prs_final <- prs_weighted %>%
+  summarise(
+    PRS = sum(weighted_risk),
+    .by = c(donorid, status)
+  )
+```
+
+```{r}
+# Check the final PRS data.
+prs_final
+```
+
+```{r}
+# Count the number of rows in the final PRS dataset.
+nrow(prs_final) 
+```
+
+**Result interpretation:**
+
+The dataset contains 300 participants, with one PRS value for each participant.
+
+## Step 6: Find the highest and lowest PRS
+
+### 6A: The Highest PRS
+
+```{r}
+# Find the participant with the highest PRS.
+prs_highest <- prs_final %>%
+  # Keep one highest value.
+  slice_max(PRS, n = 1, with_ties = FALSE) 
+```
+
+```{r}
+# Show the highest PRS.
+prs_highest  
+```
+
+### 6B: The Lowest PRS
+
+```{r}
+# Find the participant with the lowest PRS.
+prs_lowest <- prs_final %>%
+  # Keep one lowest value.
+  slice_min(PRS, n = 1, with_ties = FALSE) 
+```
+
+```{r}
+# Show the lowest PRS.
+prs_lowest 
+```
+
+**Result interpretation:**
+
+Participant d003 in the case group had the highest PRS of 2.824, while participant d167 in the case group had the lowest PRS of 0.157.
+
+# Question 2: Step7-Step8
+
+Plot and describe the distribution of PRS for both cases and controls.
+
+## Step 7: Calculate PRS Descriptive Statistics for Case and Control Groups
+
+```{r}
+# Use the final PRS data to calculate summary statistics.
+prs_summary <- prs_final %>%  
+  # Divide participants into groups based on their status.
+  group_by(status) %>%  
+  # Calculate the following statistics for each group.
+  summarise(
+    n = n(),                # Count the number of participants in each group.
+    mean = mean(PRS),       # Calculate the average PRS for each group.
+    median = median(PRS),   # Find the middle PRS value in each group.
+    sd = sd(PRS),           # Calculate how much PRS values vary within each group.
+    min = min(PRS),         # Find the lowest PRS value in each group.
+    max = max(PRS)          # Find the highest PRS value in each group.
+  ) %>%
+  # Remove all remaining grouping.
+  ungroup()
+```
+
+```{r}
+# Display the summary statistics for the case and control groups.
+prs_summary 
+```
+
+**Result interpretation:**
+
+The case and control groups each had 150 participants.
+
+The case group had a higher mean PRS (1.192) than the control group (0.887). The median PRS was also higher in the case group (1.171) than in the control group (0.868).
+
+The case group had a higher standard deviation (0.452) than the control group (0.357), indicating greater variation in PRS values.
+
+The PRS ranged from 0.157 to 2.824 in the case group and from 0.307 to 1.979 in the control group.
+
+Overall, the case group had a higher mean PRS than the control group. However, these are descriptive statistics that only show differences between the two groups. They do not establish whether the differences are statistically significant.
+
+## Step 8: Visualise and Compare PRS Distributions Between Case and Control Groups
+
+### Step 8A: Make histograms
+
+```{r}
+# Use histograms to examine the distribution of PRS in each group.
+# Histograms help show the shape, spread, and possible skewness of the data.
+prs_histogram <- ggplot(prs_final, aes(x = PRS, fill = status)) +
+  geom_histogram(bins = 18, colour = "white", alpha = 0.9) +
+  # Create separate histograms for the case and control groups.
+  # This makes it easier to examine the distribution in each group.
+  facet_wrap(~ status) + 
+  scale_fill_manual(values = c("ctrl" = "#BDFCF3", "case" = "#FFADE3")) + 
+  labs(title = "Distribution of Polygenic Risk Scores",  
+       x = "Polygenic Risk Score (PRS)",  
+       y = "Number of participants") + 
+  theme_classic(base_size = 13) + 
+  theme(legend.position = "none") 
+```
+
+```{r}
+# Display the histograms for the case and control groups.
+prs_histogram 
+```
+
+**Result interpretation:**
+
+Step 8A: Histogram
+
+The histograms show the distribution of PRS values in the case and control groups. Both groups have a single main peak and are right-skewed. The control group shows more right skew than the case group.
+
+The case group has a wider distribution, with PRS values ranging from 0.157 to 2.824. The control group has a narrower distribution, ranging from 0.307 to 1.979.
+
+The case group also has a higher mean PRS (1.192) than the control group (0.887). This suggests that participants in the case group generally have higher PRS values.
+
+### Step 8B: Make a boxplot
+
+```{r}
+# Use a boxplot to compare PRS values between the case and control groups.
+# Boxplots show the median, spread, and possible outliers in each group.
+prs_boxplot <- ggplot(prs_final, aes(x = status, y = PRS, fill = status)) + 
+  geom_boxplot(width = 0.6, alpha = 0.9) + 
+  scale_fill_manual(values = c("ctrl" = "#BDFCF3", "case" = "#FFADE3")) + 
+  labs(title = "PRS in Cases and Controls", 
+       x = "Status", 
+       y = "Polygenic Risk Score (PRS)") +  
+  theme_classic(base_size = 13) + 
+  theme(legend.position = "none") 
+```
+
+```{r}
+# Display the boxplot to compare PRS between the two groups.
+prs_boxplot
+```
+
+**Result interpretation:**
+
+Step 8B: Boxplot
+
+The boxplot shows a higher median PRS in cases (1.171) than controls (0.868).
+
+The case group has a wider spread of PRS values. This is consistent with its higher standard deviation (0.452) compared with the control group (0.357).
+
+The boxplot also shows three high PRS outliers in cases and two in controls.
+
+Overall, the case group has higher PRS values and greater variation than the control group.
+
+# Question 3: Step 9 - Step 14
+
+Is there a statistically significant difference in the PRS of cases and controls? Ensure you check all the assumptions of the test you choose.
+
+## Step 9: State the hypotheses
+
+PRS is a numerical score treated as continuous in this analysis. Status is a categorical variable with two groups: case and control.
+
+- **Null Hypothesis (H0):** Cases and controls have the same mean PRS.
+- **Alternative Hypothesis (H1):** Cases and controls have different mean PRS.
+- **Significance level:** α = 0.05.
+
+## Step 10: Check Assumptions Before Statistical Testing
+
+I will compare PRS between cases and controls. First, I will check the assumptions.
+
+**Data type:** PRS is a numeric variable. Status has two groups: case and control.
+
+**Independence:** Each participant has one PRS value. However, I cannot confirm whether participants are related or clustered.
+
+**Normality:** I will use Q-Q plots and Shapiro–Wilk tests.
+
+**Equal variances:** I will compare the spread of PRS values using descriptive statistics and residual plots.
+
+## Step 11: Calculate fitted values and residuals
+
+```{r}
+# Calculate fitted values and residuals for each group.
+prs_residuals <- prs_final %>%
+  # Group by case or control.
+  group_by(status) %>%
+  mutate(  
+    # Use the group mean as the fitted value.
+    fitted_PRS = mean(PRS),
+    # Calculate observed minus fitted PRS.
+    residual = PRS - fitted_PRS  
+  ) %>%
+    # Remove grouping.
+  ungroup() 
+```
+
+```{r}
+# Check the new columns.
+prs_residuals
+```
+
+## Step 12: Check Normality of PRS in Each Group
+
+### 12A: Create Q-Q Plots to Check Normality
+
+```{r}
+# Use Q-Q plots to check whether PRS is normally distributed.
+# Compare the PRS distribution with a theoretical normal distribution.
+
+prs_qqplot <- ggplot(prs_final, aes(sample = PRS, fill = status, colour = status)) +
+  # Add Q-Q plot points.
+  # Use smaller points with a darker outline in the same colour family.
+  geom_qq(shape = 21, size = 2, stroke = 0.7) +
+  geom_qq_line(colour = "black", linewidth = 0.8) +
+  facet_wrap(~ status) +
+  scale_fill_manual(values = c("ctrl" = "#BDFCF3", "case" = "#FFADE3")) +
+  scale_colour_manual(values = c("ctrl" = "#4FB7C5", "case" = "#D96BB3")) +
+  labs(
+    title = "Q-Q Plots of PRS",
+    x = "Theoretical Quantiles",
+    y = "Sample Quantiles"
+  ) +
+  theme_classic(base_size = 13) +
+  theme(legend.position = "none")
+```
+
+```{r}
+# Display the Q-Q plots for both groups.
+prs_qqplot
+```
+
+### 12B: Use the Shapiro–Wilk Test to Check Normality
+
+Use the Shapiro-Wilk test to check normality in each group.
+
+A p-value below 0.05 suggests a significant departure from normality.
+
+```{r}
+# Check normality in the case group.
+prs_final %>%
+  # Select participants from the case group.
+  filter(status == "case") %>%
+  # Extract PRS values as a numeric vector.
+  pull(PRS) %>%
+  # Run the Shapiro-Wilk normality test.
+  shapiro.test()
+```
+
+```{r}
+# Check normality in the control group.
+prs_final %>%
+  # Select participants from the control group.
+  filter(status == "ctrl") %>%
+  # Extract PRS values as a numeric vector.
+  pull(PRS) %>%
+    # Run the Shapiro-Wilk normality test.
+  shapiro.test()
+```
+
+**Result interpretation:**
+
+The Shapiro–Wilk test gave a p-value of 0.074 for cases and 0.000127 for controls. At α = 0.05, the control group showed a significant departure from normality, while the case group did not.
+
+The normality assumption was not met in the control group. However, Welch's t-test is reasonably robust to moderate non-normality with 150 participants per group.
+
+## Step 13: Check the Spread of Residuals Between Groups
+
+```{r}
+# Create a residual plot to compare the spread of PRS between groups.
+# This plot helps check whether the groups have similar variances.
+
+prs_residual_plot <- ggplot(
+  # Use the data containing fitted PRS values and residuals.
+  prs_residuals,
+  # Plot fitted PRS on the x-axis and residuals on the y-axis.
+  # Use different colours for the case and control groups.
+  aes(x = fitted_PRS, y = residual, fill = status, colour = status)
+) +
+  geom_jitter(width = 0.035, height = 0,
+              shape = 21, size = 2, stroke = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed",
+             colour = "black") +
+  scale_fill_manual(values = c("ctrl" = "#BDFCF3",
+                               "case" = "#FFADE3")) +
+  scale_colour_manual(values = c("ctrl" = "#4FB7C5",
+                                 "case" = "#D96BB3")) +
+  labs(
+    title = "Residual Plot for PRS",
+    x = "Fitted PRS",
+    y = "Residual"
+  ) +
+  theme_classic(base_size = 13) +
+  theme(legend.position = "none")
+```
+
+```{r}
+# Display the residual plot for both groups.
+prs_residual_plot
+```
+
+**Result interpretation:**
+
+The case group had a higher SD (0.452) than the control group (0.357). The residual plot also suggested a wider spread in cases. Therefore, I did not assume equal variances. Welch's t-test is suitable because it allows unequal variances.
+
+## Step 14: Run Statistical Tests to Compare PRS Between Groups
+
+### 14A: Wilcoxon Rank-Sum Test
+
+```{r}
+# Use the Wilcoxon rank-sum test to compare PRS between groups.
+# This test does not require normally distributed data.
+# It compares the groups using the ranks of PRS values.
+
+prs_wilcox <- wilcox.test(
+  # Compare PRS between case and control groups.
+  PRS ~ status,  
+  # Use the final PRS dataset.
+  data = prs_final    
+)
+```
+
+```{r}
+# Display the test statistic and p-value.
+prs_wilcox
+```
+
+### 14B: Welch's t-test
+
+```{r}
+# Use Welch's t-test to compare mean PRS between groups.
+# This test does not require equal variances.
+# It is used as the main test for the difference in mean PRS.
+
+prs_welch <- t.test(
+   # Compare mean PRS between cases and controls.
+  PRS ~ status,
+   # Use the final PRS dataset.
+  data = prs_final, 
+   # Use Welch's t-test, which allows different variances between groups.
+  var.equal = FALSE
+)
+```
+
+```{r}
+# Display the t-statistic, p-value, and confidence interval.
+prs_welch
+```
+
+### 14C: Simple Linear Regression
+
+```{r}
+# Use a simple linear model to compare PRS between groups.
+# The model estimates the mean difference using group status.
+# The standard model test assumes equal residual variances.
+
+prs_lm <- lm(
+  # Use PRS as the outcome and status as the predictor.
+  PRS ~ status,
+  data = prs_final
+)
+```
+
+```{r}
+# Display the model coefficients, standard errors, and p-values.
+summary(prs_lm)
+```
+
+**Result interpretation:**
+
+The Shapiro–Wilk test showed a significant departure from normality in controls (p \< 0.001), but not in cases (p = 0.074).
+
+The case group also had a higher SD (0.452) than the control group (0.357). The residual plot showed a wider spread in cases. Therefore, equal variances were not assumed.
+
+I used Welch's t-test to compare mean PRS between groups. This test allows unequal variances. With 150 participants per group, it is also reasonably robust to moderate non-normality.
+
+The Welch t-test showed a statistically significant difference in mean PRS, t(282.98) = 6.491, p \< 0.001.
+
+The mean PRS was higher in cases (1.192) than controls (0.887). The mean difference was 0.305 (95% CI: 0.213–0.398).
+
+I also used the Wilcoxon rank-sum test as a non-parametric check. It showed a significant difference between the groups (p \< 0.001).
+
+The simple linear regression estimated that controls had a mean PRS 0.305 lower than cases. However, its standard test assumes equal residual variances, so Welch's t-test was used for the main comparison.
+
+Therefore, I rejected the null hypothesis of equal means. PD cases had a significantly higher mean PRS than controls.
+
+# Summary of Questions and Answers
+
+## Question 1. Calculate a PRS for each participant. Which participant has the highest PRS? The lowest?
+
+Polygenic risk scores (PRS) were calculated for 300 participants using 15 genetic loci. For each participant, the allele dosage (0, 1 or 2) at each locus was multiplied by its corresponding GWAS beta coefficient. The weighted values were then summed to calculate the total PRS.
+
+Participant d003, a PD case, had the highest PRS (2.824). Participant d167, also a PD case, had the lowest PRS (0.157).
+
+## Question 2. Plot and describe (with descriptive statistics) the distribution of PRS for both cases and controls.
+
+The PRS distributions were visualised using histograms and a boxplot. Each group contained 150 participants.
+
+PD cases had a higher mean PRS (1.192) than controls (0.887). The median PRS was also higher in cases (1.171) than controls (0.868).
+
+Cases had a higher standard deviation (0.452) than controls (0.357), indicating greater variation. PRS ranged from 0.157 to 2.824 in cases and from 0.307 to 1.979 in controls.
+
+Both distributions were right-skewed, with greater right skew in controls. The histograms showed some overlap between the groups. The boxplot showed a higher median and a wider spread in cases.
+
+Overall, PD cases generally had higher PRS values and greater variation than controls.
+
+## Question 3. Is there a statistically significant difference in the PRS of cases and controls? Ensure you check all the assumptions of the test you choose.
+
+The null hypothesis (H0) was that cases and controls had equal mean PRS. The alternative hypothesis (H1) was that their mean PRS differed.
+
+I checked the assumptions before testing. Each participant had one PRS value, but independence between participants could not be fully confirmed from the dataset.
+
+Normality was assessed using Q-Q plots and Shapiro–Wilk tests. The case group did not show a significant departure from normality (p = 0.074). However, the control group showed a significant departure (p \< 0.001).
+
+The residual plot and descriptive statistics showed greater variation in cases than controls. Therefore, equal variances were not assumed.
+
+Welch's independent-samples t-test was used to compare mean PRS between groups. This test allows unequal variances. The large sample size (n = 150 per group) also supports its robustness to moderate departures from normality.
+
+The Welch t-test showed a statistically significant difference in mean PRS between cases and controls, t(282.98) = 6.491, p \< 0.001.
+
+The mean difference was 0.305 (95% CI: 0.213–0.398), with higher PRS in cases.
+
+A Wilcoxon rank-sum test was also performed as a non-parametric check. It showed a significant difference between the groups (p \< 0.001).
+
+Therefore, I rejected the null hypothesis. PD cases had a significantly higher mean PRS than controls in this dataset. However, this association does not establish causation.
