@@ -1,0 +1,735 @@
+---
+title: "Drug Screen Analysis"
+author: "Tushar Raja"
+date: 3 Oct 2026
+format:
+  html:
+    toc: true
+    code-fold: false
+    embed-resources: true
+editor: visual
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# Aim
+
+This report analyses a high-throughput drug screen performed in healthy donor iPSC-derived dopaminergic neurons exposed to MPP. MPP causes oxidative stress and mitochondrial dysfunction, providing an in vitro model of Parkinson's disease-related neuronal injury.
+
+Neuronal viability was measured by luminescence in relative light units (RLU). Higher RLU indicates greater apparent neuronal survival after MPP exposure.
+
+This workflow analysis addresses:
+
+1.  Whether luminescence shows patterns across the 1,536-well plate.
+2.  Which test compounds are associated with increased neuronal viability relative to their chemically matched inactive controls.
+3.  The mechanisms of action and targets of statistically significant compounds.
+
+# Setup
+
+## Load packages and data
+
+```{r}
+#| label: setup
+
+# Install these packages once if they are not already installed:
+# install.packages(c("tidyverse", "broom", "patchwork",
+#                    "ggbeeswarm", "ggrepel", "knitr"))
+
+# tidyverse: data wrangling and ggplot2 graphics
+# broom: converts model/test output into tidy data frames
+# patchwork: combines ggplot figures
+# ggbeeswarm: shows individual replicate points clearly
+# ggrepel: prevents labels from overlapping in the volcano plot
+# knitr: formats tables in the report
+
+library(tidyverse)
+library(broom)
+library(patchwork)
+library(ggbeeswarm)
+library(ggrepel)
+library(knitr)
+
+# Load the data needed for the drug-screen analysis.
+load("data/drugscreen.Rda")
+
+# Confirm that all required objects were loaded successfully.
+stopifnot(exists("plate1"))
+stopifnot(exists("plate_meta"))
+stopifnot(exists("compound_dict"))
+```
+
+## Inspect input data
+
+```{r}
+# plate1 contains luminescence values for each plate well.
+# plate_meta contains the compound label for each corresponding well.
+# compound_dict contains target and mechanism annotation for each test compound.
+head(plate1)
+head(plate_meta)
+head(compound_dict)
+
+# Confirm the measurement and metadata plates have identical dimensions
+# and matching column and row names before joining them.
+stopifnot(identical(names(plate1), names(plate_meta)))
+stopifnot(identical(plate1$plate_row, plate_meta$plate_row))
+
+# Display data structure.
+glimpse(plate1)
+glimpse(plate_meta)
+glimpse(compound_dict)
+```
+
+# Data preparation
+
+## Tidy the plate
+
+The supplied plates are wide: each row is a physical plate row and columns `col1` to `col48` are wells. Both plates are converted to long format so that one row represents one well, then joined using the row and column identifiers.
+
+```{r}
+#| label: tidy-plate
+
+# Reshape luminescence measurements to one observation per physical well.
+plate_values_long <- plate1 %>%
+  pivot_longer(
+    cols = starts_with("col"),
+    names_to = "plate_col",
+    values_to = "rlu"
+  )
+
+# Reshape the corresponding compound assignments in exactly the same way.
+plate_meta_long <- plate_meta %>%
+  pivot_longer(
+    cols = starts_with("col"),
+    names_to = "plate_col",
+    values_to = "compound_label"
+  )
+
+# Join by physical well and derive analysis variables from the supplied labels.
+plate_long <- plate_values_long %>%
+  left_join(
+    plate_meta_long,
+    by = c("plate_row", "plate_col"),
+    relationship = "one-to-one"
+  ) %>%
+  mutate(
+    row_number = parse_number(plate_row),
+    col_number = parse_number(plate_col),
+    compound_id = str_remove(compound_label, "_(test|ctrl)$"),
+    treatment_type = case_when(
+      str_detect(compound_label, "_test$") ~ "Test compound",
+      str_detect(compound_label, "_ctrl$") ~ "Matched control",
+      TRUE ~ NA_character_
+    ),
+    treatment_type = factor(
+      treatment_type,
+      levels = c("Matched control", "Test compound")
+    ),
+    # A readable coordinate is useful if an anomalous well needs investigation.
+    well = paste0("row", row_number, "_col", col_number)
+  )
+
+# Fail early if the join lost, duplicated or failed to classify any well.
+stopifnot(nrow(plate_long) == 32 * 48)
+stopifnot(!anyNA(plate_long$rlu))
+stopifnot(!anyNA(plate_long$compound_label))
+stopifnot(!anyNA(plate_long$treatment_type))
+stopifnot(dplyr::n_distinct(plate_long$well) == 32 * 48)
+```
+
+## Verify replicates
+
+Each compound-control pair should contain four technical replicate wells per condition. Every test compound must also have an entry in the annotation table.
+
+```{r}
+#| label: quality-control
+
+replicate_check <- plate_long %>%
+  count(compound_id, treatment_type, name = "n_wells")
+
+annotation_check <- plate_long %>%
+  filter(treatment_type == "Test compound") %>%
+  distinct(compound_id) %>%
+  anti_join(compound_dict, by = c("compound_id" = "id"))
+
+if (any(replicate_check$n_wells != 4)) {
+  stop("At least one compound-condition group does not contain four wells.")
+}
+
+if (nrow(annotation_check) > 0) {
+  stop("At least one test compound is absent from compound_dict.")
+}
+
+quality_control <- tibble(
+  check = c(
+    "Physical wells retained",
+    "Unique compound IDs",
+    "Four wells per compound-condition group",
+    "Test compounds with target annotation",
+    "Missing RLU or compound labels"
+  ),
+  result = c(
+    paste0(nrow(plate_long), " of 1536"),
+    as.character(n_distinct(plate_long$compound_id)),
+    if_else(all(replicate_check$n_wells == 4), "Pass", "Fail"),
+    if_else(nrow(annotation_check) == 0, "192 of 192", "Incomplete"),
+    as.character(sum(is.na(plate_long$rlu) | is.na(plate_long$compound_label)))
+  )
+)
+
+quality_control
+```
+
+# Question 1: plate pattern
+
+## Luminescence heatmap
+
+`geom_tile()` maps every physical well to its plate position. The same colour scale is used across the entire plate, so local hotspots and broad edge, row or column gradients can be assessed directly.
+
+```{r}
+#| label: fig-plate-heatmap
+#| fig-cap: "Luminescence across the 1,536-well plate after MPP exposure."
+#| fig-width: 12
+#| fig-height: 7
+
+plate_heatmap <- ggplot(
+  plate_long,
+  aes(x = col_number, y = row_number, fill = rlu)
+) +
+  geom_tile(colour = "white", linewidth = 0.12) +
+  scale_x_continuous(breaks = seq(2, 48, by = 2)) +
+  scale_y_reverse(
+    breaks = 1:32,
+    labels = paste0("row", 1:32)
+  ) +
+  scale_fill_viridis_c(option = "C", name = "RLU") +
+  coord_fixed() +
+  labs(
+    title = "Luminescence across the drug-screen plate",
+    subtitle = "Higher RLU indicates greater apparent neuronal viability",
+    x = "Plate column",
+    y = "Plate row"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text.y = element_text(size = 7),
+    axis.text.x = element_text(size = 8)
+  )
+
+plate_heatmap
+```
+
+## Row and column diagnostics
+
+The heatmap is the main spatial diagnostic. Mean profiles and simple linear trends provide supporting quantitative checks. These trend models are descriptive plate-quality checks, not tests of compound efficacy.
+
+```{r}
+#| label: spatial-diagnostics
+#| fig-cap: "Mean luminescence by physical plate row and column."
+#| fig-width: 12
+#| fig-height: 4
+
+row_summary <- plate_long %>%
+  group_by(row_number) %>%
+  summarise(mean_rlu = mean(rlu), .groups = "drop")
+
+col_summary <- plate_long %>%
+  group_by(col_number) %>%
+  summarise(mean_rlu = mean(rlu), .groups = "drop")
+
+p_row <- ggplot(row_summary, aes(x = row_number, y = mean_rlu)) +
+  geom_line(colour = "#0072B2", linewidth = 0.7) +
+  geom_point(colour = "#0072B2", size = 1.8) +
+  labs(title = "Mean RLU by row", x = "Plate row", y = "Mean RLU") +
+  theme_minimal(base_size = 11)
+
+p_col <- ggplot(col_summary, aes(x = col_number, y = mean_rlu)) +
+  geom_line(colour = "#D55E00", linewidth = 0.7) +
+  geom_point(colour = "#D55E00", size = 1.8) +
+  labs(title = "Mean RLU by column", x = "Plate column", y = "Mean RLU") +
+  theme_minimal(base_size = 11)
+
+p_row + p_col + plot_layout(guides = "collect")
+```
+
+```{r}
+#| label: spatial-trend-table
+
+# Estimate the average change in RLU for a one-position shift across each axis.
+row_model <- lm(rlu ~ row_number, data = plate_long)
+col_model <- lm(rlu ~ col_number, data = plate_long)
+
+spatial_trends <- bind_rows(
+  tidy(row_model) %>%
+    filter(term == "row_number") %>%
+    mutate(dimension = "Row"),
+  tidy(col_model) %>%
+    filter(term == "col_number") %>%
+    mutate(dimension = "Column")
+) %>%
+  transmute(
+    dimension,
+    slope_rlu_per_position = round(estimate, 3),
+    standard_error = round(std.error, 3),
+    p_value = signif(p.value, 3)
+  )
+
+spatial_trends
+```
+
+## Answer to Question 1
+
+```{r}
+#| label: answer-q1
+#| results: asis
+
+row_slope <- coef(row_model)[["row_number"]]
+col_slope <- coef(col_model)[["col_number"]]
+row_p <- tidy(row_model) %>% filter(term == "row_number") %>% pull(p.value)
+col_p <- tidy(col_model) %>% filter(term == "col_number") %>% pull(p.value)
+
+row_range <- range(row_summary$mean_rlu)
+col_range <- range(col_summary$mean_rlu)
+
+spatial_answer <- case_when(
+  row_p >= 0.05 & col_p >= 0.05 ~
+    "There was no evidence of a systematic linear row or column gradient.",
+  row_p < 0.05 & col_p >= 0.05 ~
+    "There was evidence of a row-associated gradient but not a column gradient.",
+  row_p >= 0.05 & col_p < 0.05 ~
+    "There was evidence of a column-associated gradient but not a row gradient.",
+  TRUE ~
+    "There was evidence of both row- and column-associated gradients."
+)
+
+cat(
+  "**Answer.** ", spatial_answer,
+  " Mean RLU ranged from ", round(row_range[1], 1), " to ",
+  round(row_range[2], 1), " across rows and from ",
+  round(col_range[1], 1), " to ", round(col_range[2], 1),
+  " across columns. The estimated slopes were ", round(row_slope, 3),
+  " RLU per row (p = ", signif(row_p, 3), ") and ",
+  round(col_slope, 3), " RLU per column (p = ", signif(col_p, 3),
+  "). The heatmap should also be inspected for isolated or non-linear patterns ",
+  "that these simple trend models cannot capture."
+)
+```
+
+# Question 2: compound hits
+
+## Effect estimates
+
+Each active test compound is compared only with its own chemically matched inactive control. The primary effect is the mean RLU difference (test minus control); positive values favour the active compound. Fold change is included as a scale-free descriptive effect.
+
+```{r}
+#| label: compound-summaries
+
+compound_summary <- plate_long %>%
+  mutate(
+    treatment_short = recode(
+      as.character(treatment_type),
+      "Matched control" = "control",
+      "Test compound" = "test"
+    )
+  ) %>%
+  group_by(compound_id, treatment_short) %>%
+  summarise(
+    n_wells = n(),
+    mean_rlu = mean(rlu),
+    sd_rlu = sd(rlu),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from = treatment_short,
+    values_from = c(n_wells, mean_rlu, sd_rlu),
+    names_glue = "{.value}_{treatment_short}"
+  ) %>%
+  mutate(
+    effect_rlu = mean_rlu_test - mean_rlu_control,
+    fold_change = mean_rlu_test / mean_rlu_control
+  ) %>%
+  arrange(desc(effect_rlu))
+
+# Show the largest descriptive increases before considering uncertainty.
+compound_summary %>%
+  select(
+    compound_id,
+    mean_rlu_test,
+    mean_rlu_control,
+    effect_rlu,
+    fold_change
+  ) %>%
+  slice_head(n = 10) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
+```
+
+## Statistical approach
+
+A one-sided Welch two-sample *t* test is applied separately to each compound because the research question asks specifically whether mean RLU is higher for the active compound. Welch's test does not require equal group variances. The Benjamini-Hochberg procedure controls the false discovery rate (FDR) across the 192 primary tests. A hit is defined *a priori* as a positive mean difference with BH-adjusted p \< 0.05.
+
+A one-sided Wilcoxon rank-sum test is also calculated as a sensitivity analysis. It does not create additional hits; it indicates whether the direction of a Welch-FDR hit is also supported without assuming normality. Its p-values are BH-adjusted across the same 192 compounds.
+
+```{r}
+#| label: test-compounds
+
+# split() creates one eight-well data frame for each compound-control pair.
+compound_list <- split(plate_long, plate_long$compound_id)
+
+# Run identical tests for every compound, retaining both effects and p-values.
+test_results <- map_dfr(compound_list, function(compound_data) {
+  test_values <- compound_data %>%
+    filter(treatment_type == "Test compound") %>%
+    pull(rlu)
+
+  control_values <- compound_data %>%
+    filter(treatment_type == "Matched control") %>%
+    pull(rlu)
+
+  welch_result <- t.test(
+    test_values,
+    control_values,
+    alternative = "greater",
+    var.equal = FALSE
+  )
+
+  wilcox_result <- wilcox.test(
+    test_values,
+    control_values,
+    alternative = "greater",
+    exact = FALSE
+  )
+
+  tibble(
+    compound_id = unique(compound_data$compound_id),
+    mean_test_rlu = mean(test_values),
+    mean_control_rlu = mean(control_values),
+    effect_rlu = mean(test_values) - mean(control_values),
+    fold_change = mean(test_values) / mean(control_values),
+    t_statistic = unname(welch_result$statistic),
+    degrees_freedom = unname(welch_result$parameter),
+    p_value = welch_result$p.value,
+    wilcox_p_value = wilcox_result$p.value
+  )
+})
+
+compound_tests <- test_results %>%
+  mutate(
+    fdr_bh = p.adjust(p_value, method = "BH"),
+    wilcox_fdr_bh = p.adjust(wilcox_p_value, method = "BH"),
+    hit = effect_rlu > 0 & fdr_bh < 0.05,
+    wilcox_support = wilcox_fdr_bh < 0.05
+  ) %>%
+  left_join(compound_dict, by = c("compound_id" = "id")) %>%
+  arrange(fdr_bh, desc(effect_rlu))
+
+# Annotation must remain complete after the join.
+stopifnot(!anyNA(compound_tests$hgnc_symbol))
+
+n_hits <- sum(compound_tests$hit)
+n_wilcox_supported <- sum(
+  compound_tests$hit & compound_tests$wilcox_support
+)
+```
+
+## Assumption checks
+
+The outcome is continuous and each comparison contains two groups. Equal variance is not required because Welch's correction is used. Normality is assessed within each condition using Q-Q plots and Shapiro-Wilk tests, as taught in the course. With only four observations per group, both diagnostics have limited ability to identify non-normality; the Wilcoxon analysis therefore checks whether the leading conclusions depend strongly on the normality assumption.
+
+The following plots show FDR hits, followed by the strongest positive non-significant candidates if fewer than eight hits are present. Selection is for readable diagnostics only and does not alter the tests or FDR correction.
+
+```{r}
+#| label: select-diagnostic-compounds
+
+# Prioritise declared hits, then fill remaining spaces by adjusted p-value.
+diagnostic_candidates <- compound_tests %>%
+  filter(effect_rlu > 0) %>%
+  arrange(desc(hit), fdr_bh, desc(effect_rlu)) %>%
+  slice_head(n = 8) %>%
+  pull(compound_id)
+
+normality_check <- plate_long %>%
+  group_by(compound_id, treatment_type) %>%
+  summarise(
+    # Shapiro-Wilk is undefined if all four observations are identical.
+    shapiro_p = if (sd(rlu) == 0) {
+      NA_real_
+    } else {
+      shapiro.test(rlu)$p.value
+    },
+    .groups = "drop"
+  )
+```
+
+```{r}
+#| label: fig-replicates
+#| fig-cap: "Technical replicate RLU values for compounds prioritised for diagnostic review. Black bars show group means."
+#| fig-width: 12
+#| fig-height: 6
+
+plate_long %>%
+  filter(compound_id %in% diagnostic_candidates) %>%
+  mutate(compound_id = fct_reorder(compound_id, rlu, .fun = mean)) %>%
+  ggplot(aes(x = treatment_type, y = rlu, colour = treatment_type)) +
+  geom_quasirandom(width = 0.10, size = 2.2, alpha = 0.85) +
+  stat_summary(
+    fun = mean,
+    geom = "point",
+    shape = 95,
+    size = 9,
+    colour = "black"
+  ) +
+  facet_wrap(~ compound_id, scales = "free_y", ncol = 4) +
+  scale_colour_manual(values = c("#777777", "#0072B2")) +
+  labs(
+    title = "Replicate-level values for leading compounds",
+    x = NULL,
+    y = "Luminescence (RLU)",
+    colour = NULL
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+#| label: fig-normality
+#| fig-cap: "Normal Q-Q plots within each condition for compounds prioritised for diagnostic review."
+#| fig-width: 12
+#| fig-height: 7
+
+plate_long %>%
+  filter(compound_id %in% diagnostic_candidates) %>%
+  ggplot(aes(sample = rlu, colour = treatment_type)) +
+  geom_qq(size = 1.7) +
+  geom_qq_line(linewidth = 0.6) +
+  facet_grid(treatment_type ~ compound_id, scales = "free") +
+  scale_colour_manual(values = c("#777777", "#0072B2")) +
+  labs(
+    title = "Normality diagnostics for leading compounds",
+    x = "Theoretical normal quantiles",
+    y = "Observed RLU quantiles",
+    colour = NULL
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "none")
+```
+
+```{r}
+#| label: normality-table
+
+# Display the formal normality check only for the groups shown above.
+normality_check %>%
+  filter(compound_id %in% diagnostic_candidates) %>%
+  mutate(shapiro_p = signif(shapiro_p, 3)) %>%
+  pivot_wider(names_from = treatment_type, values_from = shapiro_p)
+```
+
+```{r}
+#| label: assumption-interpretation
+#| results: asis
+
+n_diagnostic_groups <- normality_check %>%
+  filter(compound_id %in% diagnostic_candidates) %>%
+  nrow()
+
+n_normality_flags <- normality_check %>%
+  filter(compound_id %in% diagnostic_candidates, shapiro_p < 0.05) %>%
+  nrow()
+
+cat(
+  "**Assumption assessment.**Of the ", n_diagnostic_groups,
+  "displayed compound-condition groups, ", n_normality_flags,
+  "had Shapiro-Wilk p < 0.05. Regardless of this count, n = 4 per group is ",
+  "too small to establish normality confidently. Welch's correction addresses ",
+  "unequal variance, while the Wilcoxon sensitivity test evaluates whether the ",
+  "main hit direction is supported without a normality assumption. The four ",
+  "wells are technical rather than biological replicates, so inference is ",
+  "restricted to this plate and donor."
+)
+```
+
+## Multiple-testing results
+
+```{r}
+#| label: fig-effect-significance
+#| fig-cap: "Mean test-control RLU difference and BH-adjusted significance for all 192 compounds."
+#| fig-width: 10
+#| fig-height: 6
+
+compound_tests %>%
+  mutate(
+    hit_status = if_else(hit, "BH-FDR hit", "Not a BH-FDR hit")
+  ) %>%
+  ggplot(aes(x = effect_rlu, y = -log10(fdr_bh))) +
+  geom_hline(
+    yintercept = -log10(0.05),
+    linetype = 2,
+    colour = "grey40"
+  ) +
+  geom_vline(xintercept = 0, linetype = 2, colour = "grey40") +
+  geom_point(aes(colour = hit_status), size = 2.2, alpha = 0.85) +
+  geom_text_repel(
+    data = \(x) filter(x, hit),
+    aes(label = compound_id),
+    max.overlaps = Inf,
+    size = 3,
+    show.legend = FALSE
+  ) +
+  scale_colour_manual(
+    values = c("BH-FDR hit" = "#D55E00", "Not a BH-FDR hit" = "grey70")
+  ) +
+  labs(
+    title = "Compound effects relative to matched inactive controls",
+    subtitle = "Dashed horizontal line: BH-adjusted p = 0.05",
+    x = "Mean RLU difference (test - control)",
+    y = expression(-log[10]("BH-adjusted p-value")),
+    colour = NULL
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+#| label: hit-table
+
+hits_table <- compound_tests %>%
+  filter(hit) %>%
+  transmute(
+    compound_id,
+    target_gene = hgnc_symbol,
+    target_entrez_id = target_enzyme,
+    mechanism = action,
+    mean_test_rlu = round(mean_test_rlu, 2),
+    mean_control_rlu = round(mean_control_rlu, 2),
+    difference_rlu = round(effect_rlu, 2),
+    fold_change = round(fold_change, 3),
+    p_value = signif(p_value, 3),
+    fdr_bh = signif(fdr_bh, 3),
+    wilcox_p_value = signif(wilcox_p_value, 3),
+    wilcox_fdr_bh = signif(wilcox_fdr_bh, 3)
+  )
+
+if (nrow(hits_table) > 0) {
+  hits_table
+} else {
+  # If no hit survives FDR, show candidates without mislabelling them as hits.
+  compound_tests %>%
+    filter(effect_rlu > 0) %>%
+    slice_min(p_value, n = 10, with_ties = FALSE) %>%
+    transmute(
+      compound_id,
+      target_gene = hgnc_symbol,
+      mechanism = action,
+      difference_rlu = round(effect_rlu, 2),
+      fold_change = round(fold_change, 3),
+      p_value = signif(p_value, 3),
+      fdr_bh = signif(fdr_bh, 3),
+      interpretation = "Nominal candidate; not an FDR hit"
+    )
+}
+```
+
+## Answer to Question 2
+
+```{r}
+#| label: answer-q2
+#| results: asis
+
+if (n_hits == 0) {
+  cat(
+    "**Answer.** No compound met the pre-specified hit definition of a positive ",
+    "effect with BH-adjusted p < 0.05. The displayed nominal candidates may be ",
+    "prioritised for repeat screening, but this plate provides insufficient ",
+    "evidence to call them statistically significant neuroprotective hits."
+  )
+} else {
+  hit_names <- compound_tests %>%
+    filter(hit) %>%
+    pull(compound_id) %>%
+    paste(collapse = ", ")
+
+  cat(
+    "**Answer.** ", n_hits,
+    " compound(s) were associated with increased luminescence after BH-FDR ",
+    "correction: ", hit_names, ". Of these, ", n_wilcox_supported,
+    " also had a one-sided Wilcoxon BH-adjusted p < 0.05. These are plate-level screening ",
+    "hits rather than confirmed neuroprotective compounds because all four ",
+    "observations per condition are technical replicates from one donor."
+  )
+}
+```
+
+# Question 3: targets and actions
+
+The compound dictionary supplies the HGNC target symbol, Entrez target ID and whether each test compound acts as an agonist or antagonist. Only compounds meeting the primary FDR hit definition are included below.
+
+```{r}
+#| label: mechanism-table
+
+mechanism_table <- compound_tests %>%
+  filter(hit) %>%
+  transmute(
+    compound_id,
+    target_gene = hgnc_symbol,
+    target_entrez_id = target_enzyme,
+    mechanism_of_action = action,
+    difference_rlu = round(effect_rlu, 2),
+    fold_change = round(fold_change, 3),
+    fdr_bh = signif(fdr_bh, 3)
+  ) %>%
+  arrange(fdr_bh, desc(difference_rlu))
+
+mechanism_table
+```
+
+```{r}
+#| label: answer-q3
+#| results: asis
+
+if (nrow(mechanism_table) == 0) {
+  cat(
+    "**Answer.** Because no compound passed the primary FDR threshold, there ",
+    "are no statistically supported targets or mechanisms of action to report ",
+    "from this screen. Mechanistic claims should not be based on nominal ",
+    "p-values alone."
+  )
+} else {
+  mechanism_text <- mechanism_table %>%
+    transmute(
+      statement = paste0(
+        compound_id, " targets ", target_gene, " (Entrez ",
+        target_entrez_id, ") as an ", mechanism_of_action
+      )
+    ) %>%
+    pull(statement) %>%
+    paste(collapse = "; ")
+
+  cat(
+    "**Answer.** The statistically supported compound-target relationships ",
+    "were: ", mechanism_text, ". These annotations identify hypotheses for ",
+    "follow-up; they do not establish that the annotated target caused the ",
+    "luminescence increase."
+  )
+}
+```
+
+# Limitations and next steps
+
+- The four wells per condition are technical replicates, not independent biological replicates; the analysis therefore estimates within-plate measurement variation but not donor-to-donor or differentiation-to- differentiation variation.
+- The screen used neurons from one healthy donor, one compound concentration and one 24-hour time point, limiting biological generalisability.
+- Luminescence is a proxy for viable metabolic activity. A compound could alter ATP production or assay chemistry without changing neuron number.
+- The analysis tests association, not target-level causation. The annotations nominate mechanisms for validation but cannot prove them.
+- FDR hits should be repeated on independent plates and differentiations, then tested using dose-response experiments and orthogonal readouts such as live/dead imaging, neurite morphology, mitochondrial function and oxidative- stress markers.
+- Strong candidates should subsequently be assessed in neurons from additional healthy donors and people with Parkinson's disease.
+
+# Reproducibility
+
+The report contains all data preparation, quality control, plotting, assumption checking and statistical testing required to reproduce the results. The final chunk records the R version, operating system and package versions used for the render.
+
+# Session information
+
+```{r}
+#| label: session-information
+sessionInfo()
+```
