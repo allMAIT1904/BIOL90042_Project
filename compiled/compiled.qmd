@@ -35,7 +35,7 @@ The report uses one visual language throughout:
 ```{r}
 #| label: project-setup
 
-# Load only packages used in the submitted analyses and BIOL90042 course.
+# Load packages
 library(tidyverse)
 library(RNAseq123)
 library(pheatmap)
