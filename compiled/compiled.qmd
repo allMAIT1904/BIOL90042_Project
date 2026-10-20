@@ -35,7 +35,7 @@ The report uses one visual language throughout:
 ```{r}
 #| label: project-setup
 
-# Load only packages used in the submitted analyses and BIOL90042 course.
+# Load packages
 library(tidyverse)
 library(RNAseq123)
 library(pheatmap)
@@ -576,6 +576,7 @@ Both distributions were right-skewed, with greater right skew in controls. The h
 Overall, PD cases generally had higher PRS values and greater variation than controls.
 
 ### Question 3. Is there a statistically significant difference in the PRS of cases and controls? Ensure
+
 ### you check all the assumptions of the test you choose.
 
 The null hypothesis (H0) was that cases and controls had equal mean PRS. The alternative hypothesis (H1) was that their mean PRS differed.
