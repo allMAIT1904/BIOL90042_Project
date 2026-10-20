@@ -76,7 +76,7 @@ theme_set(
 )
 ```
 
-## Population genetics
+# Population genetics
 
 This analysis uses the genotype data and GWAS beta values. I calculated a PRS for each participant. I then compared PD cases and healthy controls.
 
