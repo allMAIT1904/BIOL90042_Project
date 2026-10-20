@@ -262,7 +262,7 @@ Overall, the case group had a higher mean PRS than the control group. However, t
 
 ### Step 8: Visualise and Compare PRS Distributions Between Case and Control Groups
 
-#### Step 8A: Make histograms
+#### 8A: Make histograms
 
 ```{r}
 ## Use histograms to examine the distribution of PRS in each group.
@@ -295,7 +295,7 @@ The case group has a wider distribution, with PRS values ranging from 0.157 to 2
 
 The case group also has a higher mean PRS (1.192) than the control group (0.887). This suggests that participants in the case group generally have higher PRS values.
 
-#### Step 8B: Make a boxplot
+#### 8B: Make a boxplot
 
 ```{r}
 ## Use a boxplot to compare PRS values between the case and control groups.
