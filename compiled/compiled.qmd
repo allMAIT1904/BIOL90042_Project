@@ -680,7 +680,7 @@ gene_info <- left_join(
   by =  join_by (genes == entrezid)) # match genes in the left table to entrezid on the right 
 colnames(gene_info)
 
-gene_info <- gene_info |> dplyr::rename(SYMBOL = gene_name)
+#gene_info <- gene_info |> dplyr::rename(SYMBOL = gene_name)
 colnames(gene_info)
 
 rownames(gene_info) <- rownames(dge$counts) # join resets row names, put the IDs back
@@ -1147,6 +1147,8 @@ cat(
 )
 ```
 
+\*\* Q1: There was no evidence of a systematic linear row or column gradient. Mean RLU ranged from 492.6 to 512.4 across rows and from 486.8 to 512.4 across columns. The estimated slopes were 0.05 RLU per row (p = 0.572 ) and 0.016 RLU per column (p = 0.787 ). The heatmap should also be inspected for isolated or non-linear patterns that these simple trend models cannot capture. \*\*
+
 # Question 2: compound hits
 
 ## Effect estimates
@@ -1489,6 +1491,7 @@ if (n_hits == 0) {
   )
 }
 ```
+5 compound(s) were associated with increased luminescence after BH-FDR  correction:  cmpd_5631, cmpd_5706, cmpd_5986, cmpd_6529, cmpd_4996. These are plate-level screening  hits rather than confirmed neuroprotective compounds because all four observations per condition are technical replicates from one donor.
 
 # Question 3: targets and actions
 
@@ -1623,7 +1626,7 @@ All patients' mean and median orientation are close to zero (usually within 0.5 
 #### Visualise the distribution of orientation standard deviation for each group
 
 ```{r}
-#| fig-width: 4
+#| fig-width: 7
 #| fig-height: 3
 
 set.seed(7) # for reproducibility of jitter
