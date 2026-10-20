@@ -1491,7 +1491,8 @@ if (n_hits == 0) {
   )
 }
 ```
-5 compound(s) were associated with increased luminescence after BH-FDR  correction:  cmpd_5631, cmpd_5706, cmpd_5986, cmpd_6529, cmpd_4996. These are plate-level screening  hits rather than confirmed neuroprotective compounds because all four observations per condition are technical replicates from one donor.
+
+5 compound(s) were associated with increased luminescence after BH-FDR correction: cmpd_5631, cmpd_5706, cmpd_5986, cmpd_6529, cmpd_4996. These are plate-level screening hits rather than confirmed neuroprotective compounds because all four observations per condition are technical replicates from one donor.
 
 # Question 3: targets and actions
 
