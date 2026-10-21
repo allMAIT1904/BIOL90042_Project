@@ -1524,55 +1524,76 @@ mechanism_table
 - Candidate hits should be retested in independent plates, across a concentration range, with orthogonal assays such as live/dead imaging, neurite analysis, mitochondrial assays, or oxidative-stress readouts.
 - Strong candidates should subsequently be tested in neurons derived from additional healthy donors and patients with Parkinson's disease.
 
-# Clinical trial
+## Preparatory steps
 
-## Load packages and read in gait data
+### Load packages and read in gait data
 
-### Question 1: Determining a measure of gait stability
+```{r}
+#| message: false 
+#| warning: false
 
-**Plot each participants’ gait data and describe it using descriptive statistics. Which of these descriptive statistics do you think is most useful for capturing the overall gait smoothness and balance of a participant?**
+# run here:i_am() to establish the project root
+here::i_am("clinical_trial/group_project_part4_draft2.qmd")
 
-#### First, tidy up the gait data
+# load packages required for analysis
+library(tidyverse)
+library(here)
+library(rstatix)
+library(ggbeeswarm)
 
-First, check if there are any missing values in the gait data
+# load in clinical trial data
+load(here("data", "gait.Rda")) # load in gait data
+
+```
+
+### Tidy up the gait data
+
+First, check if there are any missing values in the gait data.
 
 ```{r}
 
+# return the number of NAs in gait_data
 is.na(gait_data) %>% sum()
 
 ```
 
-There are no missing values, so the raw data can now be formatted in a way suitable or plotting as a line graph.
+There are no missing values, so the raw data can now be formatted in a way suitable for plotting and further analysis.
 
 ```{r}
 
 gait_long <- gait_data %>% 
-  # convert orientation columns into long format so they can be plotted
+  # convert orientation columns into long format (two columns for timepoint and orientation at that timepoint)
   pivot_longer(
     cols = ends_with('_secs'), 
     names_to = 'timepoint_secs', 
     values_to = 'orientation_deg') %>% 
-  # change timepoint to numeric format so it can be plotted as a continuous variable
+  # change timepoint to numeric format
   mutate(timepoint_secs = timepoint_secs %>% 
            str_remove('_secs') %>% 
-           as.numeric())
+           as.numeric()) 
 
 ```
 
+------------------------------------------------------------------------
+
+## Question 1: Determining a measure of gait stability
+
+*Plot each participants’ gait data and describe it using descriptive statistics. Which of these descriptive statistics do you think is most useful for capturing the overall gait smoothness and balance of a participant?*
+
 ### Plot the gait data for each participant
 
-Data for each participant can be plotted as a line graph, with timepoints on the x-axis and orientation on the y-axis.
+Data for each participant can be plotted as a line graph, showing the patient's orientation over time.
 
 ```{r}
 #| fig-width: 10
 #| fig-height: 8
 
-## plot orientation against timepoint for each patient
+# plot orientation against timepoint for each patient
 ggplot(data = gait_long, aes(x = timepoint_secs, y = orientation_deg)) + 
   geom_line() + # plot a line graph
   facet_wrap(~donorid) + # make a separate plot for each patient
   geom_hline(yintercept = 0, colour = 'red') + # add reference line at 0 degrees (which represents standing exactly upright)
-  theme_classic(base_size = 13) +
+  theme_bw(base_size = 16) +
   theme(strip.background = element_rect(fill = 'white', colour = 'black'), 
         strip.text = element_text(colour = 'black')) +
   scale_y_continuous(limits = c(-60, 60)) +
@@ -1581,13 +1602,13 @@ ggplot(data = gait_long, aes(x = timepoint_secs, y = orientation_deg)) +
 
 ```
 
-#### Calculate various descriptive statistics each patient
+These plots show that each patient's orientation varies many times over the 700 seconds measured, roughly oscillating around zero (upright). Some patients show more extreme variablity in orientation than others, and the amount of variability is suggestive of their balance and gait stability. For example, d019 shows the least variability, with their orientation remaining within 10 degrees off-axis, suggesting a fairly stable gait and good balance. Meanwhile, d141 shows the greatest variability, reaching up to 60 degrees off-axis, suggesting very poor balance and an unstable gait. \### Calculate various descriptive statistics each patient
 
-Summary statistics that represent the spread of orientation measurements (a proxy for balance or smoothness of gait) were calculated for each patient.
+It would appear from the above plots that some measure of spread for a patient's orientation over the time measured would be a suitable proxy for their balance and gait stability. Various measures of spread could be suitable, including mean or median absolute value, standard deviation (SD), root mean square (RMS), range, or interquartile range (IQR). These values are calculated for each patient below. Also calculated are the mean and median orientation for each patient, which should equal approximately zero if the patient's orientation oscillates around vertical (as it would appear from the graph), or a non-zero value if the patient is systematically leaning to one side.
 
 ```{r}
 
-## calculate various summary statistics for each patient:
+# calculate various summary statistics for each patient:
 gait_summary <- gait_long %>% summarise(
    # mean and median for a measure of centre (from plots, expected to be approximately zero degrees)
   mean = mean(orientation_deg),
@@ -1606,68 +1627,134 @@ gait_summary <- gait_long %>% summarise(
 ) %>% 
   # join summary stats onto the treatment, age, and exercise information from gait_data by the shared donor.id column
   left_join(
-    dplyr::select(gait_data, donorid, treatment, age, exercise), 
+    select(gait_data, donorid, treatment, age, exercise), 
     ., 
     by = "donorid"
   )
 
-## check if SD and RMS differ significantly for any patient
-(gait_summary$sd - gait_summary$rms) %>% range
+```
+
+First, we can evaluate whether patients' orientation typically oscillates around a mid-point of zero degrees. Measures for this include the mean and median orientation being approximately zero and the sd and rms being approximately equal for each patient.
+
+```{r}
+
+# evaluate the distribution of the mean and median orientation
+summary(gait_summary$mean)
+summary(gait_summary$median)
+
+# check if patients' SD and RMS of orientation are approximately equal
+(gait_summary$sd - gait_summary$rms) %>% summary()
 
 ```
 
-All patients' mean and median orientation are close to zero (usually within 0.5 degrees). This indicates no consistent lean in one direction, which can occur in Parkinson's). The other descriptive statistics could be considered as measures of gait smoothness as they indicate spread. Range is not ideal as it is sensitive to outliers, as is mean absolute value. Median absolute value and interquartile range are less sensitive to outliers, but... Standard deviation (SD) and root mean square ... The SD measures variation around zero and the RMS measures variation around the mean, so would measure different things if any patients had a consistent lean away from zero degrees. However, they should be equal in cases where the mean is zero. Supporting the medians and means being close to zero, standard deviation and root mean square of orientation values were within 0.01 degrees for every patient. This means that they measure essentially the same thing (?) in our data, and therefore either could be used as a measure of gait smoothness. SD was chosen simply because it is more widely understood. (RMS more common in papers?)
+From the above summaries, we can conclude that patients' mean and median orientations are typically within 1 degree of zero and usually even less, indicating that their orientation varies around a midpoint of being vertical. Additionally, patients' RMS and SD of orientation are very similar, with the largest difference between them being only 0.017 degrees, which also supports patients' orientation oscillating around zero degrees.
 
-### Question 2: Comparing the new compound to standard of care
+For a measure of spread to use as a proxy for patients' balance and gait smoothness, we considered mean and median absolute values, range, IQR, SD, and RMS of their orientation measurements overall the 700 seconds measured. While measurements of gait smoothness or balance in the literature are usually more complex than the one used here, the RMS is often used (e.g. RMS centre of mass or pressure). Since SD and RMS were almost identical and SD is more widely understood and used, we took the SD of patients' orientation over time (sd(orientation)) as a proxy for balance and gait smoothness.
 
-**Is there a statistically significant difference in gait between participants receiving L-DOPA and the new compound? Ensure that you check your assumptions.**
+SD is an appropriate measure of spread when there are minimal outliers and the data largely follows a normal distribution. This can first be investigated using a hisogram of the orientation measurements for each patient.
 
-#### Visualise the distribution of orientation standard deviation for each group
+### Check that standard deviation of orientation is an appropriate measure of spread
 
 ```{r}
-#| fig-width: 7
+#| fig-width: 10
+#| fig-height: 8
+
+# plot a histogram of orientation for each patient
+ggplot(data = gait_long, aes(x = orientation_deg)) + 
+  geom_histogram(bins = 18) + # plot a histogram - bins decided with Rice's rule
+  # make a separate plot for each patient
+  facet_wrap(~donorid) +
+  # add a reference line at 0 degrees - the expected centre
+  geom_vline(xintercept = 0, colour = 'black', linetype = 2, linewidth = 0.6) +
+  theme_bw(base_size = 16) +
+  theme(strip.background = element_rect(fill = 'white', colour = 'black'),
+        strip.text = element_text(colour = 'black')) +
+  labs(title = "Distribution of orientation measurements for 16 clinical trial participants", x = "Vertical orientation (degrees off-axis)", y = "Count")
+
+```
+
+It appears from the histograms that each patient's data is roughly symmetrical. The normality can be tested using QQ plots and a Shapiro-Wilk test.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 8
+
+# plot a QQ plot of orientation measurements for each patient
+ggplot(data = gait_long, aes(sample = orientation_deg)) + 
+  geom_qq() + # plot a qq plot with a reference normal distribution
+  geom_qq_line() + # add a reference line
+  # make a separate plot for each patient
+  facet_wrap(~donorid, scales = "free") +
+  theme_bw(base_size = 16) +
+  theme(strip.background = element_rect(fill = 'white', colour = 'black'),
+        strip.text = element_text(colour = 'black')) +
+  labs(title = "QQ plots testing for the normality of orientation measurements for 16 clinical trial participants", x = 'Theoretical quantiles (normal distribution)', y = 'Sample quantiles (orientation (degress off-axis))')
+
+```
+
+```{r}
+
+gait_long %>% 
+  group_by(donorid) %>% 
+  shapiro_test(orientation_deg) %>% 
+  ungroup()
+
+```
+
+In the QQ plots, the points follow the reference lines quite well, suggesting normal orientation data within each patient, although the divergence at the tails suggest some minor departure from normality. The Shapiro-Wilk tests generally yield p \> 0.05, which does not provide evidence against the null hypothesis that the data is normal. While the p-values are quite low for a few patients (the lowest being 0.07 for d003), the fact that the Shapiro-Wilk tests are consistent with normal data for the majority of the 16 patients suggests that sd(orientation) is an appropriate proxy for balance and gait smoothness.
+
+------------------------------------------------------------------------
+
+## Question 2: Comparing the new compound to standard of care
+
+*Is there a statistically significant difference in gait between participants receiving L-DOPA and the new compound? Ensure that you check your assumptions.*
+
+### Visualise the distribution of orientation standard deviation for each group
+
+First, we can visually explore the distribution of sd(orientation) between treatment groups with a box plot and jitter plot.
+
+```{r}
+#| fig-width: 4
 #| fig-height: 3
 
-set.seed(7) # for reproducibility of jitter
-## Make boxplot + jitter of standard deviation orientation for patients in each group
+# Make boxplot + dotplot of standard deviation orientation for patients in each group
 ggplot(data = gait_summary, aes(x = treatment, y = sd)) +
-  geom_boxplot(width = 0.3) +
-  geom_jitter(width = 0.03, height = 0, size = 1.5, colour = control_colour) +
-  theme_classic(base_size = 13) +
+  geom_boxplot(width = 0.3) + # add boxplot
+  geom_beeswarm(colour = 'steelblue', cex = 2.5, size = 1.5, preserve.data.axis = TRUE) + # add individual points as beeswarm
+  theme_bw(base_size = 8) +
+  scale_y_continuous(limits = c(0, 20)) +
   labs(title = 'Standard deviation of orientation for clinical trial participants', 
        x = 'Treatment', y = 'Standard deviation orientation (degrees off-axis)')
 ```
 
-From the boxplots, it appears that the group treated with the new compound has a lower standard deviation of orientation over the 700 seconds, indicating a smoother gait (although with larger variation), but this must be checked with statistical tests
+From the boxplots, it appears that the group treated with the new compound has a lower standard deviation of orientation over the 700 seconds, indicating a smoother gait, but this must be checked with statistical tests. It also appears that the new compound group has a much greater variance in sd(orientation) than the control group.
 
-An independent samples t-test or a Wilcoxon rank-sum test would be appropriate for comparing the two groups, depending on whether the assumptions are met.
+An independent samples t-test or a Wilcoxon rank-sum test (Mann-Whitney U test) would be appropriate for comparing the two groups, depending on whether the assumptions are met.
 
-#### Address the assumptions of a t-test
+### Address the assumptions of a t-test
 
-1.  Independent observations : (WHAT DOES THIS MEAN?)
+1.  Independent observations : This assumption is met in the study design, as presumably no patient's measurements should affect another's. We can make sure that each patient only appears in one group by checking that each donor id only appears once (see below). We can also assume that the trial coordinators used appropriate sampling techniques to ensure that this assumption is met.
 
 ```{r}
 
-## check that each donor id only appears once
+# check that each donor id only appears once
+# this should guarantee that each donor id only appears in one group
 duplicated(gait_summary$donorid) %>% sum
 
-## this should guarantee that each donor id only appears in one group
 ```
 
-2.  Normally distributed outcome variable in each group: This can be tested with a qq plot and a Shapiro test.
+2.  Normally distributed outcome variable in each group: This can be tested with a QQ plot and a Shapiro-Wilk test.
 
 ```{r}
+#| fig-width: 5
+#| fig-height: 3
 
-## make a qq plot showing the distribution of the outcome variable in each group against a normal distribution
-
-###bc_trans <- boxcox_trans <- (right_skewed^lambda - 1) / lambda
-
-
+# make a qq plot showing the distribution of the outcome variable in each treatment group against a reference normal distribution
 ggplot(data = gait_summary, aes(sample = sd)) +
-  geom_qq() + 
-  geom_qq_line() +
-  facet_wrap(~treatment) +
-  theme_classic(base_size = 13) +
+  geom_qq() + # plot sample vs theoretical quantiles
+  geom_qq_line() + # add a reference line
+  facet_wrap(~treatment, scales = "free") + # make separate plots for each treatment group
+  theme_bw(base_size = 8) +
   theme(strip.background = element_rect(fill = 'white', colour = 'black'), 
         strip.text = element_text(colour = 'black')) +
   labs(title = 'QQ plots testing for normality of orientation standard deviation',
@@ -1676,129 +1763,176 @@ ggplot(data = gait_summary, aes(sample = sd)) +
 
 ```
 
+The QQ plot suggests that the standard deviation of orientation does not form a normal distribution for either group, since the points do not seem to closely follow the reference line representing a normal distribution. However, this is difficult to see since the sample size is very small. A Shapiro test quantitatively tests the assumption that the outcome follows a normal distribution.
+
 ```{r}
 
-## shapiro test for each group
+# perform a shapiro test to check the assumption that the sd(orientation) in each group follows a normal distribution (null hypothesis)
 gait_summary %>% 
-  filter(treatment == 'L-DOPA control') %>% 
-  pull(sd) %>%
-  shapiro.test() 
-gait_summary %>% 
-  filter(treatment == 'New compound') %>% 
-  pull(sd) %>% 
-  shapiro.test()
+  group_by(treatment) %>% # to perform a separate test for each treatment group
+  shapiro_test(sd) %>% # perform Shapiro test on sd(orientation) values
+  ungroup()
 
 ```
 
-A Shapiro-Wilk normality test on the outcome variable (standard deviation of orientation) yielded p = 0.1077 for the L-DOPA control group and 0.5585 for the New compound group. In both groups, this means we fail to reject the null hypothesis that the data follows a normal distribution. However, due to the qq plot not appearing normal and small sample sizes as seen here making the Shapiro test lose power to detect a departure from normality, we proceeded with a non-parametric Wilcoxon run-sum test, which does not assume normality of the outcome variable.
+A Shapiro-Wilk normality test on the outcome variable (standard deviation of orientation) yields p = 0.11 for the L-DOPA control group and 0.56 for the new compound group. In both groups, this means we fail to reject the null hypothesis that the data follows a normal distribution. However, small sample sizes (as seen here) can make the Shapiro test lose power to detect a departure from normality. Because of this, and the QQ plots not appearing normal, we proceeded with a non-parametric Wilcoxon rank-sum test (Mann-Whitney U test) to test a difference between treatment groups, which does not assume normality of the outcome variable.
+
+While it is possible to transform data to make the outcome variable normal, we attempted various transformations but none substantially improved the normality of the data. An example of this, making QQ plots and for each treatment group with a square root transformation applied to the outcome data, is shown below. The QQ plot does not look any better than before, and while the Shapiro test p-values are slightly larger, it is still safest to run a non-parametric test since the small sample size could be distorting results. We substituted various transformations into the below code and none of them were particularly successful; many made the data appear more normal for one group but not the other or largely normalised the data but left major outliers.
 
 ```{r}
-
-## shapiro test for each group
-gait_summary %>% 
-  filter(treatment == 'L-DOPA control') %>% 
-  mutate(trans = (sd)^(1/4)) %>% 
-  pull(trans) %>%
-  shapiro.test() 
-gait_summary %>% 
-  filter(treatment == 'New compound') %>% 
-  mutate(trans = sd^(1/4)) %>% 
-  pull(trans) %>%
-  shapiro.test() 
-
-```
-
-```{r}
-
-## run a Wilcoxon rank-sum/Mann-Whitney U-test comparing the distribution of sd(orientation) between the two treatment groups
-## by default, two-sided and unpaired
-wilcox.test(sd ~ treatment, data = gait_summary)
-
-
-```
-
-This yields a p-value of 0.08, which does not provide any strong evidence that there is a difference in distribution in sd(orientation), as a proxy for gait smoothness, between the L-DOPA control and New compound treatment groups. However, accounting for covariates may reveal an effect. This can be visualised as below.
-
-```{r}
-#| fig-width: 4
+#| fig-width: 5
 #| fig-height: 3
 
-ggplot(data = gait_summary, aes(x = treatment, y = mean_abs)) +
-  geom_boxplot(width = 0.3) +
-  geom_jitter(width = 0.03, height = 0, size = 1.5, colour = control_colour) +
-  theme_classic(base_size = 13) +
-  scale_y_continuous(limits = c(0, 20))
+# make a QQ plot of transformed outcome data
+gait_summary %>% 
+  mutate(trans_sd = sqrt(sd)) %>%  # make a column of transformed sd(orientation) data
+  # make a QQ plot of the transformed data
+  ggplot(aes(sample = trans_sd)) +
+  geom_qq() + # plot sample vs theoretical quantiles
+  geom_qq_line() + # add a reference line
+  facet_wrap(~treatment, scales = "free") + # make separate plots for each treatment group
+  theme_bw(base_size = 8) +
+  theme(strip.background = element_rect(fill = 'white', colour = 'black'), 
+        strip.text = element_text(colour = 'black')) +
+  labs(title = 'QQ plots testing for normality of orientation standard deviation',
+       x = 'Theoretical quantiles (normal distribution)', y = 'Sample quantiles (sqrt(sd(orientation)))')
+  
 ```
 
-### Question 3: Considering covariates of age and exercise on the effect of treatment
+```{r}
+
+# run a Shapiro test for normality of transformed sd(orientation) data
+gait_summary %>% 
+  mutate(trans_sd = sqrt(sd)) %>%  # make a column of transformed sd(orientation) data
+  # run a separate test for each treatment group
+  group_by(treatment) %>% 
+  # run the Shapiro test
+  shapiro_test(trans_sd) %>% 
+  ungroup()
+
+```
+
+Nonetheless, we can check the third assumption of a standard t-test (for consideration later on).
+
+3.  Equal variances between groups. From the IQR of the boxplots above, it appears the new compound group has a much larger variance than the L-DOPA control group. This can be quantified using a Levene test, which is suitable here as the groups are independent and the sd(orientation) data does not largely deviate from normal (as tested earlier).
+
+```{r}
+
+# calculate the variance of each group
+gait_summary %>% 
+  summarise(variance = var(sd),
+            .by = treatment)
+```
+
+```{r}
+
+# perform Levene test for equal variances between treatment groups
+gait_summary %>% 
+  levene_test(sd ~ as.factor(treatment))
+
+```
+
+The Levene test does not provide evidence against the null hypothesis that groups have equal variance (p = 0.41), but like the Shapiro test, this test also has limited statistical power when the sample size is small. Considering this fact, and that the variances appear quite different (13.2 vs 8.4), we are unsure whether the groups truly have different variances.
+
+### Quantify the difference between treatment groups
+
+As discussed above, a Wilcoxon rank-sum test will be used to obtain the most confident estimate of the difference in sd(orientation), as a measure of balance and gait stability, between treatment groups.
+
+```{r}
+
+# run a Wilcoxon rank-sum/Mann-Whitney U-test comparing the distribution of sd(orientation) between the two treatment groups
+# by default, two-sided and unpaired
+gait_summary %>% 
+  wilcox_test(sd ~ treatment)
+
+```
+
+This yields a p-value of 0.083, which does not provide any strong evidence that there is a difference in distribution in sd(orientation), as a proxy for gait smoothness, between the L-DOPA control and new compound treatment groups. However, accounting for covariates may reveal an effect, which will be tested below.
+
+------------------------------------------------------------------------
+
+## Question 3: Considering covariates of age and exercise on the effect of treatment
 
 **Does either of age or the exercise regime affect gait? If so, take this into consideration when investigating the relationship between the treatment and gait.**
 
-#### Linear model for the effect of treatment on gait
+### Fit a linear model for the effect of treatment on gait
 
-A linear model is the most common way to effect the relationship between a continuous outcome variable and a categorical predictor variable while considering covariates. For a binary predictor like in our data and no covariates, a linear model is equivalent to a t-test with equal variances. As discussed above, our data may subvert the t-test assumption of normality of the outcome variable within each group. It also appears from the above boxplots that the variance of the outcome between groups may not be equal (larger in the new compound group.)
+A linear model is the most common way to effect the relationship between a continuous outcome variable and a categorical predictor variable while considering covariates. For a binary predictor like in our data and no covariates, a linear model is equivalent to a t-test with equal variances. As discussed above, our data may subvert the t-test assumptions of normality of the outcome variable within each group and equal variances for the outcome variable between groups.
 
-Nonetheless, we will use a linear model to test the effects of covariates on the realtionship between treatment and gait, while keeping the violated assumptions in mind.
+Nonetheless, we used a linear model to test the effects of covariates on the realtionship between treatment and gait, while keeping the potentially violated assumptions in mind.
 
-First, we ran a simple linear model without any covariates for a baseline p-value.
+First, we ran a simple linear model without any covariates for a baseline p-value. This is equivalent to a t-test with equal variances.
 
 ```{r}
 
-lm(sd ~ treatment, data = gait_summary) %>% summary()
+lm(sd ~ treatment, data = gait_summary) %>% 
+  summary()
 
 ```
 
-The p-value for treatment, 0.0385, provides evidence against the nunll hypothesis, suggesting that there is a difference between sd(orientation) between treatment groups. However, we must remember that p was higher in the wilcoxon rank-sum test.
+The p-value for treatment, 0.039, provides some evidence against the null hypothesis that the groups have the same mean sd(orientation), suggesting that there is a difference between treatment groups. However, we must remember that p was higher in the Wilcoxon rank-sum test, which is likely more accurate and appropriate for the data.
 
-#### Effect of exercise regime on the relationship between gait and treament
+### Investigate the effect of exercise regime on the relationship between gait and treament
 
-Visualise the effect of exercise on the relationship between treatment and gait smoothness.
+Now we can test the effects of covariates on the relationship between treatment and gait. First, we can visualise the effect of exercise on the relationship between treatment and gait smoothness.
 
 ```{r}
 #| fig-width: 4
 #| fig-height: 3
 
+# Make boxplot + beeswarm of standard deviation orientation for patients in each group
 ggplot(data = gait_summary, aes(x = treatment, y = sd)) +
-  geom_boxplot(width = 0.3) +
-  geom_jitter(aes(colour = exercise), width = 0.03, height = 0, size = 1.5) +
-  theme_classic(base_size = 13) +
-  scale_y_continuous(limits = c(0, 20)) 
+  geom_boxplot(width = 0.3) + # add boxplot
+  geom_beeswarm(aes(colour = exercise), cex = 2.5, size = 1.5, preserve.data.axis = TRUE) + # add individual points as beeswarm
+  theme_bw(base_size = 8) +
+  scale_colour_discrete(labels = c('y' = 'Yes', 'n' = 'No')) +
+  scale_y_continuous(limits = c(0, 20)) +
+  labs(title = 'Standard deviation of orientation for clinical trial participants', 
+       x = 'Treatment', y = 'Standard deviation orientation (degrees off-axis)', 
+  colour = 'Exercise')
 
 ```
 
-It appears that the exercise regime is associated with lower sd(orientation). This can first be tested with a linear model for the relationship between exercise and sd(orientation).
+From this plot, it appears that the exercise regime is associated with lower sd(orientation) in both treatment groups. This can be tested with a linear model for the relationship between exercise and sd(orientation).
 
 ```{r}
 
-lm(sd ~ exercise, data = gait_summary) %>% summary()
+lm(sd ~ exercise, data = gait_summary) %>% 
+  summary()
 
 ```
 
-The p-value of 0.0286 suggests a significant difference in sd(orientation) between the exercise and no-exercise groups, independently of the effect of treatment.
+The p-value of 0.029 suggests a significant difference in sd(orientation) between the exercise and no-exercise groups, independently of the effect of treatment.
 
-We can then test the effect of exercise on the relationship between treatment and sd(orientation). This can be tested by adding exercise as a covariate to the linear model.
+We can then test the effect of exercise on the relationship between treatment and sd(orientation). This can be tested by adding exercise as a covariate to the initial linear model.
 
 ```{r}
 
-lm(sd ~ treatment + exercise, data = gait_summary) %>%  summary()
+lm(sd ~ treatment + exercise, data = gait_summary) %>%  
+  summary()
 
 ```
 
-The p-value of 0.0133 for treatment provides evidence for a significant relationship between treatment and sd(orientation) when considering the covariate of exercise. This is lower than when covariates are not included, suggesting that the addition of the exercise covariate improves the model(?). The p-value of 0.0102 for exercise suggests a significant relationship between exercise and sd(orientation), when controlling for treament(?).
+The p-value of 0.013 for treatment provides evidence for a significant relationship between treatment and sd(orientation) when considering the covariate of exercise. The p-value of 0.0102 for exercise suggests a significant relationship between exercise and sd(orientation), when controlling for treament. These p-values are lower for both predictors than when covariates were not included, suggesting that a model based on treatment and exercise performs better than models only considering one predictor.
 
-#### Effect of age on the relationship between treatment and gait
+### Investigate the effect of age on the relationship between treatment and gait
 
-Visualise the effect of exercise on the relationship between treatment and gait smoothness.
+Visualise the effect of age on the relationship between treatment and gait smoothness.
 
 ```{r}
 #| fig-width: 4
 #| fig-height: 3
 
+# make boxplot + jitter of standard deviation orientation for patients in each group
 ggplot(data = gait_summary, aes(x = treatment, y = sd)) +
-  geom_boxplot(width = 0.3) +
-  geom_jitter(aes(colour = age), width = 0.03, height = 0, size = 1.5) +
-  theme_classic(base_size = 13) +
-  scale_y_continuous(limits = c(0, 20)) 
+  geom_boxplot(width = 0.3) + # add boxplot
+  geom_beeswarm(aes(colour = age), cex = 2.5, size = 1.5, preserve.data.axis = TRUE) + # add individual points as beeswarm
+  theme_bw(base_size = 8) +
+  scale_y_continuous(limits = c(0, 20)) +
+  scale_colour_continuous(transform = 'reverse', guide = guide_colorbar(reverse = TRUE)) + # make lighter colour = younger age, and the legend ordered top to bottom from old to young
+  labs(title = 'Standard deviation of orientation for clinical trial participants', 
+       x = 'Treatment', y = 'Standard deviation orientation (degrees off-axis)', 
+  colour = 'Age (years)')
 
 ```
 
@@ -1806,58 +1940,65 @@ It appears that younger age may be associated with lower sd(orientation). This i
 
 ```{r}
 
-lm(sd ~ age, data = gait_summary) %>% summary()
+lm(sd ~ age, data = gait_summary) %>% 
+  summary()
 
 ```
 
-The p-value of 0.00286 suggests a significant relationship between sd(orientation) and age, independently of the effect of treatment.
+The p-value of 0.0029 suggests a highly significant relationship between sd(orientation) and age, independently of the effect of treatment.
 
 We can then test the effect of age on the relationship between treatment and sd(orientation). This can be tested by adding age as a covariate to the linear model.
 
 ```{r}
 
-lm(sd ~ treatment + age, data = gait_summary) %>%  summary()
+lm(sd ~ treatment + age, data = gait_summary) %>%  
+  summary()
 
 ```
 
-The p-value of 0.01304 for treatment provides evidence for a significant relationship between treatment and sd(orientation) when considering the covariate of age This is lower than when covariates are not included, suggesting that the addition of the age covariate improves the model(?). The p-value of 0.00123 for age suggests a significant relationship between age and sd(orientation), when controlling for treament(?).
+The p-value of 0.013 for treatment provides evidence for a significant relationship between treatment and sd(orientation) when considering the covariate of age. The p-value of 0.0012 for age suggests a significant relationship between age and sd(orientation), when controlling for treament. Like before, these p-values are lower than when covariates are not included, again suggesting that including covariates improves the model.
 
-#### Effect of exercise and age on relationship between treatment and gait
+### Investigate the effect of exercise and age on relationship between treatment and gait
 
-Visualise the effect of both age and exercise on the relationship between treatment and gait smoothness.
+First, we can visualise the effect of both age and exercise on the relationship between treatment and gait smoothness.
 
 ```{r}
 #| fig-width: 4
 #| fig-height: 3
 
+# make boxplot + jitter of standard deviation orientation for patients in each group
 ggplot(data = gait_summary, aes(x = treatment, y = sd)) +
-  geom_boxplot(width = 0.3) +
-  geom_jitter(aes(colour = exercise, size = age), width = 0.03, height = 0) + 
-  theme_classic(base_size = 13) +
-  scale_size_continuous(range = c(0.5, 2))
-  scale_y_continuous(limits = c(0, 20)) 
+  geom_boxplot(width = 0.3) + # add boxplots
+  geom_beeswarm(aes(colour = exercise, alpha = age), cex = 2.5, size = 1.5, preserve.data.axis = TRUE) + # add individual points as beeswarm
+  theme_bw(base_size = 8) +
+  scale_y_continuous(limits = c(0, 20)) +
+  scale_alpha_continuous(range = c(0.3, 1)) +
+  scale_colour_discrete(labels = c('y' = 'Yes', 'n' = 'No')) +
+  guides(alpha = guide_legend(reverse = TRUE)) + # make age legend appear in desired order
+  labs(title = 'Standard deviation of orientation for clinical trial participants', 
+       x = 'Treatment', y = 'Standard deviation orientation (degrees off-axis)', 
+  colour = 'Exercise', alpha = 'Age (years)')
 
 ```
+
+Although this plot is quite busy, it shows, like above, that younger and and the exercise regime generally result in lower sd(orientation) in both treatment groups. It also reveals a hidden effect in the L-DOPA control group: while visualising just by age, we could not see any clear effect of age on sd(orientation), but now we see that lower age tends to be associated with lower sd(orientation) within each exercise group.
 
 We can test the effect of both exercise and age on the relationship between treatment and sd(orientation). This can be tested by adding exercise and age as covariates to the linear model.
 
 ```{r}
 
-lm(sd ~ treatment + exercise + age, data = gait_summary) %>%  summary()
+lm(sd ~ treatment + exercise + age, data = gait_summary) %>%  
+  summary()
 
 ```
 
-Overall, the p-values for treatment, age, and exercise are far lower when all three are considered in the linear model than when any one or two are considered, suggesting that the addition of age and exercise as covariates improve the model(?).
+The p-values of 9.82e-05 for treatment, 4.74e-05 for exercise, and 7.32e-06 for age suggest that all three of these variables have a highly significant effect on the outcome of sd(orientation), when controlling for the other two variables. These values are much lower than p-values from linear models using each of the three variables as the sole predictor, or pairs of predictors, suggesting that using all three predictors substantially improves the performance of the linear model. In particular, the linear model using treatment as the sole predictor gave p = 0.039 while the linear model with the two covariates gave p = 9.82e-05 for the treatment predictor; this indicates that the inclusion of age and exercise as covariates significantly improves the linear model's prediction of sd(orientation).
 
-While the normality and equal variances assumptions of a standard t-test, equivalent to a linear model, were not met, the large difference between p-values when covariates are and are not included suggests that even if a non-parametric equivalent of the linear regression model were to be used, \[interpretation?\]
+While we could not be sure that the normality and equal variance assumptions of a simple linear model were met, the p-values obtained from a simple linear model and a Wilcoxon test were not too different, so we believe that the lower sd(orientation) seen in the new compound group is a true effect when considering age and exercise. While a non-parametric alternative to a linear model may be more appropriate for our data, the best option would be to have a larger sample size of patients, which would improve our ability to test for normality and equal variances of the outcome variable. The small sample size is a limitation of the study design since it both reduces statistical power and may not necessarily represent the population. Another weakness of this analysis is the outcome measure. Poor gait stability is only one possible symptoms of Parkinson's disease; other symptoms such as tremors, bradykinesia, and non-motor symptoms are also often present. Measuring the effect of the new compound on these other symptoms in further studies may make the results more clinically meaningful.
 
-Sentence to sum up?
+Overall, this data provides evidence that the new compound can result in greater balance and gait stability compared to the L-DOPA standard of care in Parkinson's disease, represented by standard deviation of vertical orientation. This effect is especially revealed when considering covariates of age and exercise. Lower age is associated with smoother gait, as might be expected, and completion of the exercise regime is also associated with smoother gait in addition to the treatment. Overall, this provides promising initial data that the new compound may result in better gait stability in Parkinson's disease compared to the standard of care, especially when combined with an exercise regime.
 
-another test
-
-```{r}
-lm(sd ~ age + exercise, data = gait_summary) %>% summary()
-```
+------------------------------------------------------------------------
 
 # Bringing the study arms together
 
