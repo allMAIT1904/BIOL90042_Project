@@ -104,7 +104,7 @@ theme_set(
 
 ### Background
 
-A polygenic risk score (PRS) combines information from multiple genetic variants to estimate a person's genetic risk of developing a disease. A higher PRS suggests a higher genetic risk of Parkinson's disease (PD), but it cannot predict whether a person will develop PD.
+A polygenic risk score (PRS) combines information from multiple genetic variants to summarise genetic predisposition to a disease. A higher PRS indicates a higher relative genetic risk of Parkinson's disease (PD) based on the variants included in the score, but it does not determine whether an individual will develop PD.
 
 This analysis used genotype data from 15 genetic loci and GWAS beta values. For each locus, the allele dosage (0, 1 or 2) was multiplied by its beta value. These values were then added together to calculate a PRS for each participant.
 
@@ -233,7 +233,7 @@ nrow(prs_final)
 
 **Result interpretation:**
 
-The original dataset contains 300 participants, each with one calculated PRS. A higher score reflects a higher weighted genetic risk score under the chosen GWAS effect estimates, not a diagnosis or absolute disease probability.
+The dataset contains 300 participants, with one PRS calculated for each participant.
 
 ### Step 6: Find the highest and lowest PRS
 
@@ -267,7 +267,7 @@ prs_lowest
 
 **Result interpretation:**
 
-Participant d003 (PD case) had the highest PRS (2.824), while participant d167 (PD case) had the lowest PRS (0.157). These values describe the individuals' relative genetic scores, not their absolute probabilities of disease.
+Participant d003 (PD case) had the highest PRS (2.824), while participant d167 (PD case) had the lowest PRS (0.157).
 
 ## Question 2: Step7-Step8
 
@@ -314,7 +314,7 @@ The higher average PRS among cases is consistent with a greater burden of the we
 
 ### Step 8: Visualise and Compare PRS Distributions Between Case and Control Groups
 
-#### 8A: Make histograms
+#### 8A: Create Histograms to Compare PRS Distributions
 
 Histograms show the shape, spread and skewness of PRS distributions.
 
@@ -349,7 +349,7 @@ The case distribution extends across a wider PRS range and is shifted towards hi
 
 This is consistent with higher relative genetic predisposition among PD cases as measured by this PRS.
 
-#### 8B: Make a boxplot
+#### 8B: Create a Boxplot to Compare PRS Distributions
 
 A boxplot makes it easier to compare medians, variability and potential outliers.
 
