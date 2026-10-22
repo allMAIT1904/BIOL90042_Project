@@ -79,12 +79,16 @@ control_colour <- "#0072B2"
 case_colour <- "#D55E00"
 support_colour <- "#009E73"
 neutral_colour <- "#8C8C8C"
+down_colour <- "#1a0099"
+up_colour <- "#990000"
 
 status_colours <- c("ctrl" = control_colour, "case" = case_colour)
 group_colours <- c("control" = control_colour, "case" = case_colour)
 treatment_colours <- c("L-DOPA control" = control_colour,
                        "New compound" = case_colour)
 exercise_colours <- c("n" = neutral_colour, "y" = support_colour)
+scale_cols <- c( "Not DE" = neutral_colour,"Lower in PD" = down_colour, "Higher in PD" = up_colour)
+
 
 # Apply readable typography and layout to all ggplot figures.
 theme_set(
@@ -976,7 +980,7 @@ de_go |> arrange(desc, SYMBOL) |> dplyr::select(desc, SYMBOL, logFC, adj.P.Val)
 de_go |> count(desc,direction)
 ```
 
-All 20 differentially expressed genes were annotated to their respective GO term in the provided table above, and together they covered 2 GO families: Autophagy and Synaptic transmission. Autophagy contained 10 genes that were higher in PD, while Synaptic transmission contained 10 lower. This shows the biological processes the DE genes are associated with.
+All 21 differentially expressed genes were annotated to their respective GO term in the provided table above, and together they covered 2 GO families: Autophagy and Synaptic transmission. Autophagy contained 11 genes that were higher in PD, while Synaptic transmission contained 10 lower. This shows the biological processes the DE genes are associated with.
 
 ### Creating a Heatmap
 
@@ -1019,27 +1023,31 @@ heatmap <- pheatmap(
 
 *Which genes are differentially expressed between PD cases and healthy controls? Please also visualise your DE results with appropriate plot(s)*
 
-20 genes in total were differentially expressed (adjusted p\<0.05). 10 genes (UVRAG, HERC1, DNM2,PRKN, IRGM, HDAC10, RNF166, HDAC6, ATG5 and VPS4A) were found to be upregulated and showed higher expression, while the following 10 genes (RIT2, MAPK1, APBA3, RPS6KA1, LRP6, CDK5, LARGE1, DRD4, UNC119 and PDE7B) showed a lower expression in PD cases in comparison to the controls.
+Differential expression analysis identified 21 genes with statistiscally signfifcant differences in expression between PD cases and healthy controls (adjusted p\<0.05). Of these 11 genes (UVRAG, HERC1, DNM2,PRKN, IRGM, HDAC10, RNF166, HDAC6, ATG5 , VPS4A and PIK3C3) were found to be upregulated and showed higher expression in PD cases , while the remaining 10 genes were downregultated (RIT2, MAPK1, APBA3, RPS6KA1, LRP6, CDK5, LARGE1, DRD4, UNC119 and PDE7B), showing a lower expression in PD cases in comparison to the controls.
 
-From the MA plot, each data point is representative of a gene, with its average expression on the x axis and its log2fold change on the y-axis. Most genes cluster around zero, which is expected when most genes do not change and normalisation has worked.There is no obvious trend in fold change across expression levels, which suggests no systematic bias. Whilst the differentially expressed genes lie clearly above or below this cluster.
+The MA plot shows the log2fold change of each gene against its average expression. Most genes cluster around zero, indicating that their expression did not change substantially between groups, suggesting normalisation was also performed. The differentially expressed genes lie above zero, if therre is a greater log2fold change corresponding to higher expression in PD cases, or below zero, if there is a reduced expression in PD cases. These is no obvious trend in fold change across expression levels, though this visual assessment alone cannot rule out all systematic bias.
 
-Likwise, the volcano plotshows the log2 fold change against the significance of each gene. RIT2 is the most significant gene (adjusted p valye of 0.0000105) and is lower in PD, while UVRAG and HERC1 are the most significant genes higher in PD (adjusted p value of 0.0000331 and 0.0000333 respectively).PDE78 demonstrates the largest fold change of -6.74 without a slightly weaker though still strong evidence with an adjusted p value of 0.0018.All 20 genes passed the adjusted p \< 0.05 cutoff, and only ATG5, UNC119 and VPS4A had adjusted p-values above 0.01.Overall, the volcano plot shows the DE genes standing apart from the non-DE genes at the top left and right, with RIT2, APBA3, UVRAG, MAPK1 and HERC1 being the most significant.
+The volcano plot further highlights the magnitude and statistical signfifcance of these differences. RIT2 was the most statistically significant gene with an adjusted p value of 0.0000105 and was shown to be downregulated in PD cases. While UVRAG and HERC1 were among the most signififcant upregulated genes with adjusted p value of 0.0000331 and 0.0000333 respectively. PDE78 demonstrates the largest fold change in magnitude (log2fold change = -6.74), with an adjusted value of 0.0018. Although its statistical evidence was weaker in comparison to the most significant genes, it remained significant at the adjusted p\<0.05 threshold. Overall, the volcano plot successfully shows the differentially expressed genes standing apart from the non-differentially expressed genes at the top left and right
+
+These findings have identified a set of genes which differs in expression between PD and healthy control cases. However, statistical significance does not necessarily indicate biological importance, and the magnitude of fold changes needs to be carefully evaluated alongside expression levels and the sample size of the study.Whilst the analysis identifies associations with disease status, it does not establish whether these expression changes contribute to PD or may be consequences of the disease that result in gene expression changes.
 
 ### Question 2
 
 *Which gene ontology families do the DE genes belong to?*
 
-All 20 differentially expressed genes belong to one of the two gene ontology families. The 10 genes higher in PD cases were all annotated to autophagy (for example PRKN, ATG5, and VPS4A), and the 10 genes lower in PD cases were all annotated to synaptic transmission (for example RIT2, CDK5, and APBA3). This came from joining the differentially expressed genes to the gene_ontology table by Entrez ID and counting genes per term, split by direction.
+The gene ontology analysis grouped the differntially expressed genes into two reported functional categories: autphagy and synaptic transmission. The upregulated genes were all annotated to autophagy, including RKN, ATG5, and VPS4A, whereas the downregulated genes were associated with synaptic transmission including RIT2, CDK5, and APBA3. These categories were identified by joining the differentially expressed genes to the gene ontology annotatiion table by Entrez IDs and counting annotated genes by expression direction.
 
-Upregulated expression of autophagy genes could reflect neurons responding to protein accumulation or mitochondrial stress, which are known features od PF. While on the other hand, downregulated expressio of synaptic transmission gene may be consistent with reduced neuronal signalling in PD neurons.
+The upregulated expression of autophagy genes may reflect changes in cellular processes involved in portein and organelle turnover, as neurons respond to protein accumulation or mitochondrial stress, while the downregulation of synaptic transmission gene may be consistent with reduced neuronal signalling in PD neurons. Though, these are only intial interpretations as increase or decrease expression of genes may not directly translate to downstream responses. Furthermore, the findings depend on the annotations and selection of genes in the dataset. These results should therefore only be interpreted as functional annotations of the identified genes.
 
 ### Question 3
 
 *Is the clustering of samples by gene expression consistent with their disease status as cases and controls?*
 
-From the MDS plot above, dimension 1 explains 9 % of the variation and separates cases 1 to 5 on the right of the plot from controls 1 to 8 on the left. Interestingly,cases 6-8 appears to cluster together close to the controls, suggesting heterogeneity between patients. Dimension 2 explains a further 7%, so the two dimensions together capture only 16% of the variation. The MDS plot is therefore a limited summary of the samples, because most of the variations lies in other dimensions.
+The MDS plot shows partial separation between PD cases and healthy controls based on their gene expression profiles. Cases 1 to 5 cluster on the right at positive values of dimension , whereas controls 1 to 8 cluster on the left at negative values. However, cases 6, 7 and 8 cluster closer to the controls, suggesting heterogeneity between patients as this reflect variation in gene expression profile among the PD cases. Overall, the clustering is partly consistent with disease status, although the groups are not completely separated. Dimension 1 accounts for 9 % while dimension 2 explains a further 7%. Together, these two dimension represent approximately 16% of the variation, meaning that the MDS plot captures only part of the overall differences between samples. Therefore, samples that appear similar in the MDS plot may still differ in their gene expression profiles, as the plot only displays a relative small proportion of the overall variation. This provides a limited representation of the relationship between samples.
 
-The heatmap of the top 30 genes in the datasets, which includes all 20 differentially expressed genes shows the same patterns. The branches along the top show which samples have similar expression. Based on this dataset, cases 1 to 5 form one branch, whilst all eight controls form another. Cases 6, 7 and 8 form a third, small branch next to the controls, suggesting their expression may be quite close to control levels. Clustering by expression is therfore partly consistent with disease status as differentially expressed genes appears to be driven mainly by cases 1 to 5, matching the MDS plots.
+The heatmap of the top 30 genes in the datasets, which includes the differentially expressed genes, shows a similar pattern. Hierarchical clustering groups cases 1 to 5 separately from the controls, while cases 6,7 and 8 form a small cluster branch closer to the controls. This supports the MDS observation that the expression profiles of cases 1 to 5 differ more clearly from those of the controls, whilst cases 6 to 8 show greater similarity to the control cases for the selected genes displayed.
+
+Taken together, the MDS plot and heatmap suggest that gene expression patterns are partially associated with disease status, but do not completely distinguish PD cases from healthy controls. The small sample size (eight cases and eight controls) limits the interpretation of these observed patterns. Furthermore, these visualisation alone cannot establish the cause of the observed clustering of expression pattern or determine how reliably gene expression profile distinguish between the groups.
 
 # Drug screening
 
@@ -2289,11 +2297,11 @@ Overall, this data provides evidence that the new compound can result in greater
 
 ------------------------------------------------------------------------
 
-#Bringing it together/linking between datasets
+## Bringing it together/linking between datasets
 
 The following analyses answer the five integration questions using the objects created in the preceding sections. Joining is performed only through the supplied identifiers: `donorid` for participants, Entrez ID for gene-level links, and HGNC symbols as a readable cross-check.
 
-## Question 1
+### Question 1
 
 *Using their unique donor IDs, how many patients appear across all four arms of the study?*
 
@@ -2344,7 +2352,7 @@ four_arm_overlap
 
 The output gives the number and identities of patients represented in all three donor-indexed arms. The number represented across all four arms cannot be determined from the supplied files because no donor identifier accompanies the drug-screen plate. This should be reported as unavailable rather than treating the drug screen as containing no overlapping donor.
 
-##Question 2
+### Question 2
 
 *Do any variables other than gene expression distinguish the RNA-seq cases from controls?*
 
@@ -2433,7 +2441,7 @@ Among cases, PRS and age show visible gradients across the MDS space: the case f
 
 Trial treatment and exercise do not show a clear pattern that explains RNA-seq clustering. Most RNA-seq participants lack trial metadata, and the available participants receiving L-DOPA, the new compound, exercise, or no exercise are spread across the case cluster. Therefore, the MDS plots do not provide strong evidence that treatment assignment or exercise status drives the RNA-seq separation.
 
-##Question 3
+### Question 3
 
 *Are any of the gene targets of hit compounds from the drug screen, differentially expressed in RNA-seq? Which GO terms are they associated with and what might this tell you about the pathology of PD?*
 
@@ -2502,7 +2510,7 @@ These overlapping targets were annotated with the supplied GO term “synaptic t
 
 However, this is a prioritisation result rather than proof of mechanism. The drug screen used technical quadruplicates from one healthy donor, while RNA-seq measured transcript abundance in a separate cohort of PD and control neurons. Drug-induced neuroprotection could result from direct target activation, downstream pathway effects, or off-target activity and validation should therefore include independent donors, dose-response experiments, protein-level target assessment, and an orthogonal viability assay.
 
-##Question 4
+### Question 4
 
 *Is there any relationship between the PRS and gait of patients in the clinical trial?*
 
@@ -2556,7 +2564,7 @@ par(mfrow = c(1, 1))
 
 The Spearman coefficient describes the unadjusted direction and strength of association. In the adjusted model, the PRS coefficient estimates the expected change in gait SD per one-unit increase in PRS while holding treatment, age and exercise constant. Because the clinical trial contains only 16 participants, estimates are imprecise and the model may be overfitted; effect size, uncertainty and diagnostic plots should be considered alongside the p-value.
 
-## Question 5
+### Question 5
 
 *In a paragraph, summarise your findings and suggest directions for future research.*
 
