@@ -2424,4 +2424,9 @@ Across the donor-indexed datasets, eight participants were represented in the po
 ```{r}
 #| label: session-information
 sessionInfo()
+# Save all workspace objects in case it is modified
+save.image(file = "BIOL90042_workspace.RData")
+
+# Restore later
+load("BIOL90042_workspace.RData")
 ```
