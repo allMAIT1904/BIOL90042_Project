@@ -343,7 +343,7 @@ prs_histogram
 
 Step 8A: Histogram
 
-Both histograms show a single main peak and some right skew, with greater right skew in controls in the report.
+Both histograms show a single main peak and some right skew, with greater right skew in controls.
 
 The case distribution extends across a wider PRS range and is shifted towards higher values, although the two groups overlap.
 
@@ -648,7 +648,7 @@ The null hypothesis (H0) was that cases and controls had equal mean PRS. The alt
 
 Each participant had one PRS value, although independence between participants could not be fully confirmed from the dataset.
 
-Normality was assessed using Q-Q plots and Shapiro–Wilk tests. Controls showed a significant departure from normality (p \< 0.001), while cases did not (p = 0.074).
+Normality was assessed using Q-Q plots and Shapiro–Wilk tests. Controls showed a significant departure from normality (p \< 0.001), while cases showed no statistically significant departure from normality (p = 0.074).
 
 The boxplot also identified potential outliers in both groups. These observations were retained in the analysis. The Wilcoxon rank-sum test was used as a supplementary rank-based comparison.
 
@@ -658,7 +658,7 @@ Welch's t-test showed a statistically significant difference in mean PRS (t = 6.
 
 The Wilcoxon rank-sum test also showed a significant difference between the groups (p \< 0.001).
 
-Therefore, the null hypothesis was rejected. PD cases had a significantly higher mean PRS than controls, suggesting greater genetic predisposition to PD based on the variants included in this analysis. However, this association does not establish causation or predict individual disease risk.
+Therefore, the null hypothesis was rejected. PD cases had a significantly higher mean PRS than controls, suggesting greater genetic predisposition to PD based on the variants included in this analysis. However, this association does not establish causation or determine an individual's absolute risk of developing PD.
 
 # RNA-seq of patient iPSC-derived neurons
 
@@ -674,9 +674,9 @@ To compare the transcriptional profiles of PD neurons with those of healthy cont
 
 The aim of this report is to characterise the transcriptional differences between Parkinson's disease (PD) and healthy control dopaminergic neurons. This analysis aims to:
 
-1. Identify genes that are differentially expressed between PD cases and healthy controls, and visualise the results using MA and volcano plots.
-2. Identify the Gene Ontology (GO) categories associated with the differentially expressed genes.
-3. Assess whether samples cluster according to disease status.
+1.  Identify genes that are differentially expressed between PD cases and healthy controls, and visualise the results using MA and volcano plots.
+2.  Identify the Gene Ontology (GO) categories associated with the differentially expressed genes.
+3.  Assess whether samples cluster according to disease status.
 
 ## Code and Interpretation
 
@@ -711,6 +711,7 @@ table(keep)
 
 proportions(table(keep)) # The same summary as proportions, to show the fraction of genes removed and retained
 ```
+
 Filtering removes 204 of the 10,100 genes, leaving 9,895 genes for analysis. This is then subsetted to retain these genes and recalculate the library sizes.
 
 ```{r}
@@ -1002,7 +1003,7 @@ heatmap <- pheatmap(
 
 ## Questions
 
-### Question 1 
+### Question 1
 
 *Which genes are differentially expressed between PD cases and healthy controls? Please also visualise your DE results with appropriate plot(s)*
 
