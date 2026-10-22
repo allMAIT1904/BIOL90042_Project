@@ -118,9 +118,9 @@ In this analysis, we used genotype data from 15 genetic loci and GWAS beta value
 
 ## Question 1: Step1-Step6
 
-### Step 1: Inspect the genotype and GWAS datasets
-
 Calculate a PRS for each participant. Which participant has the highest PRS? The lowest?
+
+### Step 1: Inspect the genotype and GWAS datasets
 
 Check the two datasets. Make sure the locus names can be matched.
 
