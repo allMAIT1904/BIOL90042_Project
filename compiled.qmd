@@ -21,7 +21,9 @@ execute:
 
 # Project overview
 
-This report analyses four connected arms of a simulated Parkinson's disease (PD) research program: population genetics, RNA sequencing of patient-derived neurons, drug screening, and a clinical trial.
+Parkinson's disease (PD) is a neurodegenerative disease involving the loss of dopamine-producing neurons in the substantia nigra of the brain. The resulting reduction in dopamine production causes motor symptoms, such as tremor, bradykinesia (slow movement) and an unsteady gait, as well as various non-motor symptoms. The causes of PD are not well-understood, and the current standard of care is the dopamine-replacement therapy L-DOPA, which helps to manage the motor symptoms of PD.
+
+This report analyses four connected arms of a simulated PD research program: population genetics, RNA sequencing of patient-derived neurons, drug screening, and a clinical trial.
 
 The report uses one visual language throughout:
 
@@ -40,6 +42,7 @@ The report uses one visual language throughout:
 install.packages(c(
   "tidyverse",
   "pheatmap",
+  "rstatix",
   "ggrepel",
   "broom",
   "patchwork",
@@ -62,6 +65,7 @@ library(broom)
 library(patchwork)
 library(ggbeeswarm)
 library(knitr)
+library(rstatix)
 
 # Load every dataset once from paths relative to the R project root.
 load("data/prs.Rda")
@@ -96,13 +100,27 @@ theme_set(
 
 # Population genetics
 
-This analysis uses the genotype data and GWAS beta values. I calculated a PRS for each participant. I then compared PD cases and healthy controls.
+## Introduction
+
+### Background
+
+A polygenic risk score (PRS) combines information from multiple genetic variants to estimate a person's genetic risk of developing a disease. A higher PRS suggests a higher genetic risk of Parkinson's disease (PD), but it cannot predict whether a person will develop PD.
+
+In this analysis, we used genotype data from 15 genetic loci and GWAS beta values. For each locus, the allele dosage (0, 1 or 2) was multiplied by its beta value. These values were then added together to calculate a PRS for each participant.
+
+### Aims
+
+1.  Calculate a PRS for each participant and identify the highest and lowest scores.
+
+2.  Compare the PRS distributions between PD cases and healthy controls.
+
+3.  Test whether there is a statistically significant difference in mean PRS between the two groups.
 
 ## Question 1: Step1-Step6
 
-Calculate a PRS for each participant. Which participant has the highest PRS? The lowest?
-
 ### Step 1: Inspect the genotype and GWAS datasets
+
+Calculate a PRS for each participant. Which participant has the highest PRS? The lowest?
 
 Check the two datasets. Make sure the locus names can be matched.
 
@@ -901,7 +919,7 @@ The heatmap shows the top 30 genes in the datasets, which include all differenti
 
 # Drug screening
 
-## Background 
+## Background
 
 This section analyses a high-throughput drug screen performed in healthy donor iPSC-derived dopaminergic neurons exposed to MPP. MPP causes oxidative stress and mitochondrial dysfunction, providing an in vitro model of Parkinson's disease-related neuronal injury.
 
@@ -934,11 +952,12 @@ glimpse(plate1)
 glimpse(plate_meta)
 glimpse(compound_dict)
 ```
+
 There should be three dataframes loaded:
 
-1. 'plate1' contains luminescence values in relative light units (RLU).
-2. 'plate_meta' has the compound that is added in each well.
-3. 'compound_dict' contains the enzyme target and mechanism of action for each of the test compounds.
+1.  'plate1' contains luminescence values in relative light units (RLU).
+2.  'plate_meta' has the compound that is added in each well.
+3.  'compound_dict' contains the enzyme target and mechanism of action for each of the test compounds.
 
 ## Data preparation
 
@@ -1055,6 +1074,7 @@ p_boxplot <- ggplot(plate_long, aes(x = treatment_type, y = rlu, fill = treatmen
 ## Combine the two complementary plots.
 p_density + p_boxplot + plot_layout(widths = c(2, 1))
 ```
+
 Most of the wells have a recorded luminescence between 400-600 RLU, and hence it has been visualized through both a histogram and a box-plot. It is important to note that the boxplot starts at 400 RLU for aesthetic reasons.
 
 ### Plate heatmap
@@ -1130,11 +1150,12 @@ p_col <- ggplot(col_summary, aes(x = col_number, y = mean_rlu)) +
 
 p_row + p_col
 ```
+
 ## Questions
 
 ### Question 1
 
-_Using the geom_tile() function, visualise the luminescence across the plate. Do there appear to be any spatial patterns in this data?_
+*Using the geom_tile() function, visualise the luminescence across the plate. Do there appear to be any spatial patterns in this data?*
 
 ```{r}
 #| label: answer-q1
@@ -1171,11 +1192,12 @@ cat(
   "that these simple trend models cannot capture."
 )
 ```
+
 There was no evidence of a systematic linear row or column gradient. Mean RLU ranged from 492.6 to 512.4 across rows and from 486.8 to 512.4 across columns. The estimated slopes were 0.05 RLU per row (p = 0.572 ) and 0.016 RLU per column (p = 0.787 ). Additional visual inspection of the heatmap also does not seem to infer any spatial trends.
 
 ### Question 2
 
-_Which compounds are statistically significantly associated with increased neuronal viability after MPP exposure? Ensure that you check your assumptions._
+*Which compounds are statistically significantly associated with increased neuronal viability after MPP exposure? Ensure that you check your assumptions.*
 
 #### Effect estimates
 
@@ -1406,8 +1428,8 @@ cat(
   "restricted to this plate and donor."
 )
 ```
-Across the 16 displayed compound-condition groups, no Shapiro–Wilk test gave 
-p<0.05. However, each group contains only four technical replicates, so these tests have very limited power to detect non-normality. Non-significant results should not be interpreted as proof of normality. Welch’s t-test was used as the primary comparison because it tests the mean difference in continuous luminescence between each test compound and its matched control without assuming equal variances. Since the four wells are technical rather than biological replicates from a single donor and plate, inference is limited to this assay run and does not establish reproducible neuroprotection across donors.
+
+Across the 16 displayed compound-condition groups, no Shapiro–Wilk test gave p\<0.05. However, each group contains only four technical replicates, so these tests have very limited power to detect non-normality. Non-significant results should not be interpreted as proof of normality. Welch’s t-test was used as the primary comparison because it tests the mean difference in continuous luminescence between each test compound and its matched control without assuming equal variances. Since the four wells are technical rather than biological replicates from a single donor and plate, inference is limited to this assay run and does not establish reproducible neuroprotection across donors.
 
 #### Multiple-testing results
 
@@ -1449,7 +1471,8 @@ compound_tests %>%
   theme_minimal(base_size = 11) +
   theme(legend.position = "bottom")
 ```
-5 compounds appear to be statistically-significant according to the  Benjamini-Hochberg (BH) procedure, namely cmpd_5631, cmpd_5706, cmpd_5986, cmpd_6529, cmpd_4996.
+
+5 compounds appear to be statistically-significant according to the Benjamini-Hochberg (BH) procedure, namely cmpd_5631, cmpd_5706, cmpd_5986, cmpd_6529, cmpd_4996.
 
 ```{r}
 #| label: hit-table
@@ -1523,7 +1546,7 @@ if (n_hits == 0) {
 
 ### Question 3
 
-_What are the mechanisms of action and targets of the compounds you identify in Q2?_
+*What are the mechanisms of action and targets of the compounds you identify in Q2?*
 
 The compound dictionary supplies the HGNC target symbol, Entrez target ID and whether each test compound acts as an agonist or antagonist. Only compounds meeting the primary FDR hit definition are included below.
 
@@ -1546,7 +1569,7 @@ mechanism_table <- compound_tests %>%
 mechanism_table
 ```
 
-Five compounds were identified as significantly associated with increased neuronal viability after MPP exposure following Benjamini-Hochberg correction (FDR < 0.05). Four compounds acted as agonists: cmpd_5631 targeted _LARGE1_ (difference: 197.50 RLU; 1.389-fold increase; FDR = 0.00135), cmpd_5706 targeted _RIT2_ (201.75 RLU; 1.394-fold; FDR = 0.02470), cmpd_5986 targeted _LRP6_ (177.25 RLU; 1.344-fold; FDR = 0.03160), and cmpd_4996 targeted _MAPK1_ (186.00 RLU; 1.369-fold; FDR = 0.04770). One compound, cmpd_6529, was an antagonist targeting _MFNG_ (59.75 RLU; 1.124-fold; FDR = 0.03990). 
+Five compounds were identified as significantly associated with increased neuronal viability after MPP exposure following Benjamini-Hochberg correction (FDR \< 0.05). Four compounds acted as agonists: cmpd_5631 targeted *LARGE1* (difference: 197.50 RLU; 1.389-fold increase; FDR = 0.00135), cmpd_5706 targeted *RIT2* (201.75 RLU; 1.394-fold; FDR = 0.02470), cmpd_5986 targeted *LRP6* (177.25 RLU; 1.344-fold; FDR = 0.03160), and cmpd_4996 targeted *MAPK1* (186.00 RLU; 1.369-fold; FDR = 0.04770). One compound, cmpd_6529, was an antagonist targeting *MFNG* (59.75 RLU; 1.124-fold; FDR = 0.03990).
 
 ## Limitations and next steps
 
@@ -1557,41 +1580,43 @@ Five compounds were identified as significantly associated with increased neuron
 - Candidate hits should be retested in independent plates, across a concentration range, with orthogonal assays such as live/dead imaging, neurite analysis, mitochondrial assays, or oxidative-stress readouts.
 - Strong candidates should subsequently be tested in neurons derived from additional healthy donors and patients with Parkinson's disease.
 
-## Preparatory steps
+------------------------------------------------------------------------
 
-### Load packages and read in gait data
+# Clinical trial
+
+## Introduction
+
+This section focuses on the results of a preliminary clinical trial for a potential new PD therapy.
+
+### Background
+
+One of the hit compounds from the PD drug screen is already approved for other indications in Australia. This means that it could more easily be applied for PD treatment than an entirely new compound, if effective in treating PD. A preliminary clinical trial was run to test the efficacy of this drug in treating PD motor symptoms, compared to the standard of care L-DOPA.
+
+16 PD patients were enrolled in the trial and randomly assigned to new compound or L-DOPA groups. Four patients in each trial were additionally randomly assigned to a daily exercise routine, as regular exercise is known to help manage PD motor symptoms.
+
+The effect of each drug on motor symptoms was tested using a smart watch, which measured patients' vertical orientation (in degrees off-axis) while walking during their normal daily activities. Zero degrees indicates an entirely vertical orientation. Patients' orientation was measured every second for 700 seconds. Patients' orientation provides a measure of their balance and the stability of their gait.
+
+### Aims
+
+This section has three main aims:
+
+1.  To determine a suitable summary statistic of the orientation data that serves as a proxy for patients' balance and gait stability over the 700 seconds of measurement.
+2.  To obtain preliminary data on effect of the new drug on balance and gait stability in PD patients, particularly whether it may provide superior management of motor symptoms compared to the current standard of care.
+3.  To determine the effect of the exercise routine and age on balance and gait stablity, and how they affect the relationship between treatment (standard of care vs new compound) and gait stability.
+
+### The dataset
+
+The gait dataset contains the data from the clinical trial and can be viewed with the below code.
 
 ```{r}
-#| message: false 
-#| warning: false
 
-# run here:i_am() to establish the project root
-here::i_am("clinical_trial/group_project_part4_draft2.qmd")
-
-# load packages required for analysis
-library(tidyverse)
-library(here)
-library(rstatix)
-library(ggbeeswarm)
-
-
-```{r}
-#| message: false 
-#| warning: false
-
-# run here:i_am() to establish the project root
-here::i_am("clinical_trial/group_project_part4_draft2.qmd")
-
-# load packages required for analysis
-library(tidyverse)
-library(here)
-library(rstatix)
-library(ggbeeswarm)
-
-# load in clinical trial data
-load(here("data", "gait.Rda")) # load in gait data
+gait_data
 
 ```
+
+The gait_data dataset contains information on the 16 PD patients enrolled in the trial, including their id (donorid column) treatment group (treatment column; L-DOPA control or new compound), age (age column; in years), and whether they were assigned to the exercise routine (exercise column; y = yes, n = no). It also contains measurements of the patients' vertical orientation (degrees off-axis) for each of the 700 measurements at 1-second intervals (\*\_secs columns).
+
+## Preparatory steps
 
 ### Tidy up the gait data
 
@@ -1941,7 +1966,6 @@ gait_summary %>%
             .by = treatment)
 ```
 
-
 ```{r}
 
 # perform Levene test for equal variances between treatment groups
@@ -2124,7 +2148,7 @@ The following analyses answer the five integration questions using the objects c
 
 ## Question 1
 
-_Using their unique donor IDs, how many patients appear across all four arms of the study?_
+*Using their unique donor IDs, how many patients appear across all four arms of the study?*
 
 The drug screen used one healthy donor but its dataset does not provide a `donorid`. Therefore, exact four-way donor overlap can only be calculated if the screen donor ID is supplied separately. The code below reports the exact overlap among the three donor-indexed datasets and clearly records the limitation for all four arms.
 
@@ -2175,7 +2199,7 @@ The output gives the number and identities of patients represented in all three 
 
 ##Question 2
 
-_Do any variables other than gene expression distinguish the RNA-seq cases from controls?_
+*Do any variables other than gene expression distinguish the RNA-seq cases from controls?*
 
 MDS coordinates can be joined to PRS and trial metadata to assess whether genetic risk, age, treatment or exercise visually align with the expression-defined sample structure.
 
@@ -2249,7 +2273,7 @@ Trial treatment and exercise do not show a clear pattern that explains RNA-seq c
 
 ##Question 3
 
-_Are any of the gene targets of hit compounds from the drug screen, differentially expressed in RNA-seq? Which GO terms are they associated with and what might this tell you about the pathology of PD?_
+*Are any of the gene targets of hit compounds from the drug screen, differentially expressed in RNA-seq? Which GO terms are they associated with and what might this tell you about the pathology of PD?*
 
 This analysis intersects statistically significant drug-screen targets with genes meeting the RNA-seq FDR threshold, then attaches the supplied GO annotations.
 
@@ -2309,6 +2333,7 @@ if (nrow(hit_targets) == 0) {
       ". The direction of expression and the compound mechanism should be interpreted together; overlap prioritises a pathway for validation but does not prove target-level causation.", sep = "")
 }
 ```
+
 Yes. Four targets of compounds that increased luminescence in the drug screen were also significantly differentially expressed in PD-derived neurons: LARGE1, RIT2, LRP6, and MAPK1. All four were expressed at lower levels in PD neurons than in healthy control neurons after multiple-testing correction.
 
 These overlapping targets were annotated with the supplied GO term “synaptic transmission.” Together, the results suggest that PD neurons may have reduced expression of genes involved in neuronal signalling and synaptic function. Notably, the corresponding agonist compounds increased luminescence following MPP exposure, so activating these targets may partially compensate for disease-associated loss of function or support neuronal survival under mitochondrial and oxidative stress.
@@ -2317,7 +2342,7 @@ However, this is a prioritisation result rather than proof of mechanism. The dru
 
 ##Question 4
 
-_Is there any relationship between the PRS and gait of patients in the clinical trial?_
+*Is there any relationship between the PRS and gait of patients in the clinical trial?*
 
 Standard deviation of vertical orientation is retained as the gait-smoothness outcome from the clinical-trial section. The analysis shows the raw relationship and then adjusts for age, exercise and treatment because these variables were investigated as potential covariates.
 
@@ -2371,7 +2396,7 @@ The Spearman coefficient describes the unadjusted direction and strength of asso
 
 ## Question 5
 
-_In a paragraph, summarise your findings and suggest directions for future research._
+*In a paragraph, summarise your findings and suggest directions for future research.*
 
 ```{r}
 #| label: integration-summary
@@ -2391,6 +2416,7 @@ cat(
   sep = ""
 )
 ```
+
 Across the donor-indexed datasets, eight participants were represented in the population genetics, RNA-seq and clinical-trial arms; however, exact overlap across all four arms could not be determined because the drug-screen donor ID was unavailable. PD cases had higher polygenic risk scores than controls, while RNA-seq identified PD-associated expression differences involving autophagy- and synaptic-transmission-related genes, with some heterogeneity among cases. Four targets of FDR-significant drug-screen hits were also differentially expressed in the RNA-seq dataset, prioritising these genes and pathways for further investigation. In the clinical-trial subset with PRS data, PRS was not significantly associated with gait variability (Spearman rho = -0.21, p = 0.438). These results are exploratory because the RNA-seq and clinical-trial cohorts were small, and the drug screen comprised technical replicates from a single healthy donor. Future studies should validate promising compounds across independent donor-derived neuronal cultures and dose ranges, confirm neuroprotection using orthogonal viability and functional assays, assess target engagement at RNA and protein levels, and evaluate relationships among genetic risk, gene expression and clinical outcomes in larger, pre-specified multivariable cohorts.
 
 # Reproducibility
@@ -2401,6 +2427,6 @@ sessionInfo()
 # Save all workspace objects in case it is modified
 save.image(file = "BIOL90042_workspace.RData")
 
-# Restore objects later
+# Restore later
 load("BIOL90042_workspace.RData")
 ```
