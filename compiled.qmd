@@ -19,6 +19,96 @@ execute:
   message: false
 ---
 
+# AI Declaration
+
+## Jesamine Newman
+
+### Acknowledgement
+
+I acknowledge the use of Claude (https://claude.ai/) to explore published precedents for interpreting simulated gait measurements and selecting descriptive statistics, and to seek suggestions for transformations of the clinical-trial outcome variable.
+
+### Program/app/service used
+
+Claude — Sonnet 5.5 Medium (as recorded by the student).
+
+### Prompts used and use of outputs
+
+**Prompt 1: Gait measurements and descriptive statistics**
+
+> I have an assignment to analyse fake clinical trial data from a Parkinson's trial. For each participant (new drug or SOC), vertical orientation (degrees off-axis, presumably meaning straight upright) was measured every second while walking.
+>
+> Firstly, plotting each patient's orientation over time shows a very zig-zagging line. maximum orientation off-axis can range from absolute values of 10 to 60 degrees, and change from negative to positive very often (many times within a minute). Is this a realistic representation of a parkinson's patient's gait? Has this kind of measurement been used in any studies?
+>
+> Second, I need to choose a descriptive statistic of each patient's orientation data over time to represent their balance/gait smoothness. Possibilities for this would include standard deviation, range, iqr, mean absolute value, and median absolute value. are any of these standard for use in parkinson's studies? or for measuring other clinical data that oscillates over time?
+
+Use: I used the output to explore whether comparable gait measurements and descriptive statistics had precedents in published research. I did not ask Claude to select the statistic for the analysis. I also independently consulted the literature to inform this decision.
+
+#### Prompt 2: Exploring transformations
+
+> these are qq plots for my outcome variable for two groups against the normal distribution. can you tell me which transformation might best make the data normal? I have tried many but most make either one or both groups worse
+
+Additional input: I supplied an image of the Q–Q plots containing the points and reference lines, without axis labels.
+
+Use: I used the output to explore possible transformations of the outcome variable when assessing the normality assumption.
+
+### Additional program/app/service used
+
+Google AI Overviews, accessed through Google Search (https://www.google.com/).
+
+### Prompt and use of output
+
+Search query: I searched Google for an error encountered during the analysis. An AI Overview appeared in the search results.
+
+Use: I consulted the AI-generated overview as part of troubleshooting the error.
+
+---
+
+## Tushar Raja
+
+### Acknowledgement
+
+I acknowledge the use of Perplexity (https://www.perplexity.ai/) to assist with Quarto troubleshooting and provide guidance on GitHub collaboration during the preparation of this assessment.
+
+### Program/app/service used
+
+Perplexity AI.
+
+### Prompts used and use of outputs
+
+#### Quarto troubleshooting
+
+I supplied the Quarto rendering log containing the following error:
+
+> error in evaluating the argument 'object' in selecting a method for function 'coef': object 'row_model' not found
+
+I subsequently supplied the same error again to request further troubleshooting.
+
+Use: I used the output to help identify the cause of the rendering error and obtain guidance on defining the required model objects before they were referenced in the document.
+
+#### GitHub and collaborative editing
+
+I entered the following prompts:
+
+> pull file from github repo rstudio qmd that i've pushed but i'm editing with others
+
+Follow-up:
+
+> i dont have updated version from github
+
+Follow-up:
+
+> how to bring this file to branch
+
+I also supplied Git error messages concerning:
+
+- Uncommitted changes preventing a branch switch.
+- An untracked project file preventing a pull.
+- A rejected push requiring remote changes to be integrated.
+
+Use: I used the outputs as procedural guidance for retrieving collaborators' updates, moving a file between branches, preserving local changes, and addressing Git errors during collaborative editing.
+
+---
+
 # Project overview
 
 Parkinson's disease (PD) is a neurodegenerative disease involving the loss of dopamine-producing neurons in the substantia nigra of the brain. The resulting reduction in dopamine production causes motor symptoms, such as tremor, bradykinesia (slow movement) and an unsteady gait, as well as various non-motor symptoms. The causes of PD are not well-understood, and the current standard of care is the dopamine-replacement therapy L-DOPA, which helps to manage the motor symptoms of PD.
@@ -2274,9 +2364,9 @@ Overall, this data provides evidence that the new compound can result in greater
 
 ------------------------------------------------------------------------
 
-
 # Bringing it together/linking between datasets
->>>>>>> c069f98 (formatted analysis, added short answers to questions, modified some code and interpretation)
+
+> > > > > > > c069f98 (formatted analysis, added short answers to questions, modified some code and interpretation)
 
 The following analyses answer the five integration questions using the objects created in the preceding sections. Joining is performed only through the supplied identifiers: `donorid` for participants, Entrez ID for gene-level links, and HGNC symbols as a readable cross-check.
 
