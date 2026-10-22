@@ -122,7 +122,7 @@ This analysis used genotype data from 15 genetic loci and GWAS beta values. For 
 
 ## Question 1: Step1-Step6
 
-Calculate a PRS for each participant. Which participant has the highest PRS? The lowest?
+*Calculate a PRS for each participant. Which participant has the highest PRS? The lowest?*
 
 ### Step 1: Inspect the genotype and GWAS datasets
 
@@ -275,7 +275,7 @@ Participant d003 (PD case) had the highest PRS (2.824), while participant d167 (
 
 ## Question 2: Step7-Step8
 
-Plot and describe the distribution of PRS for both cases and controls.
+*Plot and describe the distribution of PRS for both cases and controls.*
 
 ### Step 7: Calculate PRS Descriptive Statistics for Case and Control Groups
 
@@ -401,7 +401,7 @@ The distributions still overlap, so the observed differences represent group-lev
 
 ## Question 3: Step 9 - Step 14
 
-Is there a statistically significant difference in the PRS of cases and controls? Ensure you check all the assumptions of the test you choose.
+*Is there a statistically significant difference in the PRS of cases and controls? Ensure you check all the assumptions of the test you choose.*
 
 ### Step 9: State the hypotheses
 
@@ -620,11 +620,11 @@ The mean PRS was higher in PD cases (1.192) than controls (0.887). The mean diff
 
 Therefore, the null hypothesis of equal means was rejected. The higher mean PRS in PD cases is consistent with greater genetic predisposition to PD based on the variants included in this analysis.
 
-## Summary of Questions and Answers
+##Questions
 
 ### Question 1.
 
-#### *Calculate a PRS for each participant. Which participant has the highest PRS? The lowest?*
+*Calculate a PRS for each participant. Which participant has the highest PRS? The lowest?*
 
 Polygenic risk scores (PRS) were calculated for 300 participants using 15 genetic loci. For each participant, the allele dosage (0, 1 or 2) at each locus was multiplied by its corresponding GWAS beta coefficient. The weighted values were then summed to calculate the total PRS.
 
@@ -632,7 +632,7 @@ Participant d003, a PD case, had the highest PRS (2.824). Participant d167, also
 
 ### Question 2.
 
-#### *Plot and describe (with descriptive statistics) the distribution of PRS for both cases and controls.*
+*Plot and describe (with descriptive statistics) the distribution of PRS for both cases and controls.*
 
 Histograms and a boxplot were used to compare PRS distributions between PD cases and controls. Each group contained 150 participants.
 
@@ -646,7 +646,7 @@ Overall, PD cases had higher PRS values and greater variation, suggesting greate
 
 ### Question 3.
 
-#### *Is there a statistically significant difference in the PRS of cases and controls? Ensure you check all the assumptions of the test you choose.*
+*Is there a statistically significant difference in the PRS of cases and controls? Ensure you check all the assumptions of the test you choose.*
 
 The null hypothesis (H0) was that cases and controls had equal mean PRS. The alternative hypothesis (H1) was that their mean PRS differed.
 
@@ -663,6 +663,8 @@ Welch's t-test showed a statistically significant difference in mean PRS (t = 6.
 The Wilcoxon rank-sum test also showed a significant difference between the groups (p \< 0.001).
 
 Therefore, the null hypothesis was rejected. PD cases had a significantly higher mean PRS than controls, suggesting greater genetic predisposition to PD based on the variants included in this analysis. However, this association does not establish causation or determine an individual's absolute risk of developing PD.
+
+------------------------------------------------------------------------
 
 # RNA-seq of patient iPSC-derived neurons
 
@@ -1048,6 +1050,8 @@ The MDS plot shows partial separation between PD cases and healthy controls base
 The heatmap of the top 30 genes in the datasets, which includes the differentially expressed genes, shows a similar pattern. Hierarchical clustering groups cases 1 to 5 separately from the controls, while cases 6,7 and 8 form a small cluster branch closer to the controls. This supports the MDS observation that the expression profiles of cases 1 to 5 differ more clearly from those of the controls, whilst cases 6 to 8 show greater similarity to the control cases for the selected genes displayed.
 
 Taken together, the MDS plot and heatmap suggest that gene expression patterns are partially associated with disease status, but do not completely distinguish PD cases from healthy controls. The small sample size (eight cases and eight controls) limits the interpretation of these observed patterns. Furthermore, these visualisation alone cannot establish the cause of the observed clustering of expression pattern or determine how reliably gene expression profile distinguish between the groups.
+
+------------------------------------------------------------------------
 
 # Drug screening
 
