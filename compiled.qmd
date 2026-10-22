@@ -140,6 +140,8 @@ The analysis uses 15 genetic loci with their corresponding GWAS beta values. Eac
 
 ### Step 2: Reshape the genotype data
 
+The genotype dataset is reshaped from wide to long format so each participant–locus combination has its own row.
+
 ```{r}
 ## Change the genotype data from wide to long format.
 prs_long <- ca_co_genotypes %>% 
@@ -159,6 +161,8 @@ prs_long
 ```
 
 ### Step 3: Add the GWAS beta values
+
+Match the locus identifiers between the genotype and GWAS datasets, then confirm that each genotype record has a beta coefficient.
 
 ```{r}
 ## Add GWAS beta values to the genotype data.
@@ -188,6 +192,8 @@ prs_long_new
 
 ### Step 4: Calculate the score for each locus
 
+The contribution of each locus is its allele dosage multiplied by the corresponding GWAS beta coefficient.
+
 ```{r}
 ## Dosage is coded as 0, 1 or 2 for each locus.
 ## Multiply the dosage by the GWAS beta value.
@@ -202,6 +208,8 @@ prs_weighted
 ```
 
 ### Step 5: Calculate one PRS per participant
+
+Add the 15 weighted locus contributions within each participant to obtain the total PRS.
 
 ```{r}
 ## Add the weighted scores across all 15 loci.
@@ -225,7 +233,7 @@ nrow(prs_final)
 
 **Result interpretation:**
 
-The dataset contains 300 participants, with one PRS value for each participant.
+The original dataset contains 300 participants, each with one calculated PRS. A higher score reflects a higher weighted genetic risk score under the chosen GWAS effect estimates, not a diagnosis or absolute disease probability.
 
 ### Step 6: Find the highest and lowest PRS
 
@@ -259,7 +267,7 @@ prs_lowest
 
 **Result interpretation:**
 
-Participant d003 in the case group had the highest PRS of 2.824, while participant d167 in the case group had the lowest PRS of 0.157.
+In the original analysis, participant d003 (PD case) had the highest PRS (2.824), while participant d167 (PD case) had the lowest PRS (0.157). These values describe the individuals' relative genetic scores, not their absolute probabilities of disease.
 
 ## Question 2: Step7-Step8
 
