@@ -356,19 +356,16 @@ A boxplot makes it easier to compare medians, variability and potential outliers
 ```{r}
 ## Use a boxplot to compare PRS values between the case and control groups.
 ## Boxplots show the median, spread, and possible outliers in each group.
+
 prs_boxplot <- ggplot(
-  prs_plot_data,
-  aes(
-    x = status_label,
-    y = PRS,
-    fill = status_label
-  )
+  prs_final,
+  aes(x = status, y = PRS, fill = status)
 ) +
   geom_boxplot(
     width = 0.6,
     alpha = 0.9
   ) +
-  scale_fill_manual(values = prs_plot_colours) +
+  scale_fill_manual(values = status_colours) +
   scale_y_continuous(
     limits = c(0, NA),
     expand = expansion(mult = c(0, 0.05))
@@ -380,6 +377,7 @@ prs_boxplot <- ggplot(
   ) +
   theme_classic(base_size = 13) +
   theme(legend.position = "none")
+
 ```
 
 ```{r}
