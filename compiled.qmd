@@ -419,7 +419,7 @@ The main analysis uses Welch's two-sample t-test to compare group mean PRS value
 
 With 150 participants per group, Welch's t-test is reasonably robust to moderate deviations from normality, although strong outliers still merit attention.
 
-**Equal variances**: Equal population variances are not required for Welch's t-test. Nevertheless, group standard deviations, residual plots and a median-centred Levene's test (Brown–Forsythe variant) will be used to assess variability and support a transparent comparison.
+**Equal variances**: Welch's t-test does not require equal variances between groups. Group standard deviations and a residual plot will be used to examine differences in variability. Therefore, equal variances will not be assumed.
 
 ### Step 11: Calculate fitted values and residuals
 
@@ -554,7 +554,7 @@ prs_residual_plot
 
 **Result interpretation:**
 
-The case group had a higher SD (0.452) than the control group (0.357). The residual plot also suggested a wider spread in cases. Therefore, I did not assume equal variances. Welch's t-test is suitable because it allows unequal variances.
+The case group had a higher SD (0.452) than the control group (0.357). The residual plot also suggested a wider spread in cases. Therefore, equal variances were not assumed. Welch's t-test was selected because it does not require equal variances between groups.
 
 ### Step 14: Run Statistical Tests to Compare PRS Between Groups
 
