@@ -672,63 +672,75 @@ To compare the transcriptional profiles of PD neurons with those of healthy cont
 
 The aim of this report is to characterise the transcriptional differences between Parkinson's disease (PD) and healthy control dopaminergic neurons. This analysis aims to:
 
-1. Identify genes that are differentially expressed between PD cases and healthy controls, and visualise the results using MA and volcano plots.
-2. Identify the Gene Ontology (GO) categories associated with the differentially expressed genes.
-3. Assess whether samples cluster according to disease status.
+1.  Identify genes that are differentially expressed between PD cases and healthy controls, and visualise the results using MA and volcano plots.
+2.  Identify the Gene Ontology (GO) categories associated with the differentially expressed genes.
+3.  Assess whether samples cluster according to disease status.
 
 ## Code and Interpretation
 
 ### Checking the Datasets
 
 ```{r}
-# Understanding the data structure before analysis 
-head(dge$samples) # Determining the samples in the study 
-head(dge$genes) # Determining the genes
-head(dge$counts) # Determining the raw read counts in the dataset
+# 1. Inspecting the DGE list and understanding the data structure before analysis 
+head(dge$samples) # Sample metadata: group, library size, normalisation factor and donor id
+head(dge$genes) # Displays genes
+head(dge$counts) # Determining raw read counts in the dataset (rows = genes, columns = samples)
+```
 
-# Checking how the experimental groups are coded 
+```{r}
+# 2. Checking how the experimental groups are coded 
 dge$samples$group
 class(dge$samples$group) #Stored as factors, needed for building the design matrix
+```
 
+```{r}
+# 3. Set the reference level of the group factor
 # Specifying the order of the levels, setting the 'control' group as the first(reference) level of the group factor to ensure accurate downstream analysis and plotting
 dge$samples$group <- factor(dge$samples$group, levels = c("control", "case"))
 # By putting control first, model coefficients and contrasts are interpreted relative to the control, e.g. positive logFC = higher expression in PD cases 
+levels(dge$samples$group) # Optional check: print "contro" "case"
 ```
 
 ### The RNA Sequencing Pipeline
 
 ### Filtering low count genes
 
+Filtering out lowly expressed genes to ensure reliable testing as gene with low counts carry little information for detecting differential expression
+
 ```{r}
-# Filtering out lowly expressed genes to ensure reliable testing as gene with low counts carry little information for detecting differential expression 
-keep <- filterByExpr(dge)
+keep <- filterByExpr(dge) # Identifies genes with sufficient expression 
 
 # Using table() to create a summary to determine how many genes we will keep 
 table(keep)
 # The number that fall within TRUE we will keep and FALSE will be genes filtered out and removed for analysis.
 
-proportions(table(keep)) # The same summary as proportions, to show the fraction of genes removed and retained
+proportions(table(keep)) # The same summary as proportions, to show the fraction of genes removed and retained. 
 ```
-Filtering removes 204 of the 10,100 genes, leaving 9,895 genes for analysis. This is then subsetted to retain these genes and recalculate the library sizes.
+
+Filtering removes 204 of the 10,100 genes, leaving 9,896 genes for analysis. This is then subsetted to retain these genes and recalculate the library sizes.
 
 ```{r}
-# Subset the DGEList using the square brackets and the  logical vector 'keep'
+# Subset the data to the DGEList
 dge <- dge[keep, , keep.lib.sizes = FALSE] #Recalculates library size from the retained genes
 
 # Checking the dimensions of the count matrix after filtering to see if the number of genes have been reduced 
-dim(dge$counts) # 10100 16 now 9896 16
+dim(dge$counts)
 ```
+
+Upon filtering, we can see that there is a reduced dimension count from 10100 16, now to 9896 16.
 
 ### Normalisation
 
 ```{r}
-#TMM corrects for differences in RNA composition between samples, reducing bias
+#TMM (trimmed mean of M-values) corrects for differences in RNA composition between samples, reducing bias when comparing expression across samples
 dge <- normLibSizes(dge, method = "TMM") 
 
 # Normalisation factors are then calculated for each sample and puts it in the samples dataframe of the DGE list
-dge$samples # All normalisation factors are close to 1 across all samples, suggesting minimal differences in RNA composition between samples
-summary(dge$samples)
+dge$samples # Library size and norm.factors for each sample
+summary(dge$samples$norm.factors) # Distribution of the factors across samples
 ```
+
+All normalisation factors are close to 1 across all samples, suggesting minimal differences in RNA composition between samples.
 
 ### MDS plot
 
@@ -741,7 +753,7 @@ plotMDS(dge)
 plotMDS(dge, labels = dge$samples$group)
 ```
 
-Samples that appear closer together have more similar expression profiles, based on the leading log-fold-change distances used by plotMDS(). Cases 1 -5 cluster together being further apart than the controls samples and cases 6-8. This suggests their expression profiles are more variable within the group than the controls vs cases are from each other??
+Samples that appear closer together have more similar expression profiles, based on the leading log fold change distances used by plotMDS(). Cases 1 -5 cluster together being further apart than the controls samples and cases 6-8. This suggests their expression profiles are more variable within the group than the controls vs cases are from each other.
 
 ### Setting up the Design Matrix
 
@@ -778,38 +790,46 @@ Output of this code will demonstrate that the case group will be equal to 1, whi
 The purpose of the following code is to add the respective gene names to the DGE list. It matches each gene’s Entrez ID in `dge$genes` to the lookup table `entrez_genename_key`, adds the gene name (renamed `SYMBOL`) and a description.
 
 ```{r}
+# Joining gene names onto the Entrez IDs
 gene_info <-
   dge$genes [, "genes", drop = FALSE] |>  # keeping only the Entrez ID column 
-  left_join( entrez_genename_key, # right table: lookup with names 
+  left_join( entrez_genename_key, # lookup table with gene names
   by =  join_by (genes == entrezid)) |>  # match genes in the left table to entrezid on the right 
   dplyr::rename(SYMBOL = gene_name) # rename so the column is called SYMBOL
 
-colnames(gene_info) # genes, SYMBOL, description
-# Optional checks to ensure join was reliable 
-nrow(gene_info) == nrow(dge$counts)  # TRUE, the join didn't add or drop genes 
+colnames(gene_info) # Expected: genes, SYMBOL, description
+```
 
+```{r}
+# Checking the join was reliable 
+
+# The join should not add or drop any genes, therfore every gene should be matched.
+nrow(gene_info) == nrow(dge$counts)  # TRUE, the join didn't add or drop genes 
+sum(is.na(gene_info$SYMBOL)) # 0, this shows that every gene was matched
+```
+
+```{r}
+# Storing the annotation into the DGE list
 rownames(gene_info) <- rownames(dge$counts) # join resets row names, put the IDs back
 dge$genes <- gene_info # store the annotation into the dge list
-head(dge$genes) 
 
-sum(is.na(gene_info$SYMBOL)) # 0, this shows that every gene was matched
-
+head(dge$genes) # Check for genes, SYMBOL and description columns
 ```
 
 ### Variance Modelling with voom
 
-The voom() function converts the filtered counts to log₂-counts per million (logCPM), using the library sizes and TMM normalisation factors calculated earlier. It also estimates how variability changes with expression level and assigns precision weights to account for these differences during linear modelling.
+The voom() function converts the filtered counts to log₂ counts per million (logCPM), using the library sizes and TMM normalisation factors calculated earlier. It also estimates how variability changes with expression level and assigns precision weights to account for these differences during linear modelling.
 
 ```{r}
-# voom converts counts to log-CPM and calculates precision weights from the mean-variance trend
+# The voom function takes our DGElist object and design matrix as argument to produce the following plot.
 v <- voom (dge, design, plot = TRUE)
 ```
 
-The mean-variance trend is overall smooth and decreasing, indicating that the precision weights are appropriate.
+The voom plot visualises the mean variance relationship with the x axis displaying the average log2 expression of each gene, alongside the y axis which shows the square root of the residual standard deviation of each gene.The mean-variance trend is overall smooth and decreasing, indicating that the precision weights are appropriate.
 
 ### Fitting the Linear Model
 
-After running voom, we fit a weighted linear model to each gene using the expression values and precision weights produced by voom(). We then apply the case-minus-control contrast to estimate the log₂ fold change between PD cases and healthy controls.
+After running voom, we fit a weighted linear model to each gene using the expression values and precision weights produced by voom(). We then apply the case-control contrast to estimate the log₂ fold change between PD cases and healthy controls.
 
 ```{r}
 vfit <- lmFit(v)
@@ -838,7 +858,7 @@ summary(dt)
 We use topTable() to extract the results for all tested genes, including gene annotations, log₂ fold changes, average expression, and raw and BH-adjusted p-values. By default, topTable() ranks genes by the B-statistic, which represents the log-odds of differential expression.
 
 ```{r}
-#Using the function topTable() to obtain more information on the differentially expressed gene for contrast between control vs case group
+# Using the function topTable() to obtain more information on the differentially expressed gene for contrast between control vs case group
 top <- topTable(efit, coef = "casevscontrol", n = Inf)
 
 # Convert to tibble, so its prints more neatly
@@ -890,13 +910,6 @@ top <- topTable(efit, coef = "casevscontrol", n = Inf)
 # To make the dataframe print nicer, let's convert it to a tibble
 top_tibble <- as_tibble(top)
 top_tibble
-
-# A named vector to colour the points by 
-scale_cols <- c(
-  "Not DE" = neutral_colour,
-  "Lower in PD" = control_colour,
-  "Higher in PD" = case_colour
-)
 
 ggplot(ma_plot_data_fct, aes(x = AvgExpr, y = logFC, col = status)) +
   geom_point(
@@ -1000,7 +1013,7 @@ heatmap <- pheatmap(
 
 ## Questions
 
-### Question 1 
+### Question 1
 
 *Which genes are differentially expressed between PD cases and healthy controls? Please also visualise your DE results with appropriate plot(s)*
 
@@ -2355,27 +2368,42 @@ mds_data <- tibble(
     by = "donorid"
   )
 
+dim1_var_explained <- round(mds_result$var.explained[1] * 100)
+dim2_var_explained <- round(mds_result$var.explained[2] * 100)
+
 # Disease status remains encoded by point shape in every panel. Continuous PRS
 # and age use colour gradients; treatment and exercise use the shared palette.
 p_mds_prs <- ggplot(mds_data, aes(MDS1, MDS2, shape = group, colour = PRS)) +
   geom_point(size = 4) +
   scale_colour_viridis_c(option = "C", na.value = "grey80") +
-  labs(title = "MDS coloured by polygenic risk", colour = "PRS", shape = "RNA-seq group")
+  labs(title = "MDS coloured by polygenic risk",
+       x = paste0("Leading logFC dim 1 (", dim1_var_explained, "%)"),
+       y = paste0("Leading logFC dim 2 (", dim2_var_explained, "%)"),
+       colour = "PRS", shape = "RNA-seq group")
 
 p_mds_age <- ggplot(mds_data, aes(MDS1, MDS2, shape = group, colour = age)) +
   geom_point(size = 4) +
   scale_colour_viridis_c(option = "C", na.value = "grey80") +
-  labs(title = "MDS coloured by age", colour = "Age (years)", shape = "RNA-seq group")
+  labs(title = "MDS coloured by age", 
+       x = paste0("Leading logFC dim 1 (", dim1_var_explained, "%)"),
+       y = paste0("Leading logFC dim 2 (", dim2_var_explained, "%)"),
+       colour = "Age (years)", shape = "RNA-seq group")
 
 p_mds_treatment <- ggplot(mds_data, aes(MDS1, MDS2, shape = group, colour = treatment)) +
   geom_point(size = 4) +
   scale_colour_manual(values = treatment_colours, na.value = "grey80") +
-  labs(title = "MDS coloured by trial treatment", colour = "Treatment", shape = "RNA-seq group")
+  labs(title = "MDS coloured by trial treatment", 
+       x = paste0("Leading logFC dim 1 (", dim1_var_explained, "%)"),
+       y = paste0("Leading logFC dim 2 (", dim2_var_explained, "%)"),
+       colour = "Treatment", shape = "RNA-seq group")
 
 p_mds_exercise <- ggplot(mds_data, aes(MDS1, MDS2, shape = group, colour = exercise)) +
   geom_point(size = 4) +
   scale_colour_manual(values = exercise_colours, na.value = "grey80") +
-  labs(title = "MDS coloured by exercise", colour = "Exercise", shape = "RNA-seq group")
+  labs(title = "MDS coloured by exercise", 
+       x = paste0("Leading logFC dim 1 (", dim1_var_explained, "%)"),
+       y = paste0("Leading logFC dim 2 (", dim2_var_explained, "%)"),
+       colour = "Exercise", shape = "RNA-seq group")
 
 (p_mds_prs + p_mds_age) / (p_mds_treatment + p_mds_exercise)
 ```
