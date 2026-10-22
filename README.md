@@ -355,4 +355,4 @@ and larger cohorts with pre-specified statistical models.
 
 ## Authors
 
-Group 7 
+Jesamine Newman, Nikki Leung, Tushar Raja, Yihan Yan
