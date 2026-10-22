@@ -1297,6 +1297,10 @@ p_row + p_col
 #| label: answer-q1
 #| results: asis
 
+#fit the RLU across both rows and columns as linear models
+row_model <- lm(rlu ~ row_number, data = plate_long)
+col_model <- lm(rlu ~ col_number, data = plate_long)
+
 row_slope <- coef(row_model)[["row_number"]]
 col_slope <- coef(col_model)[["col_number"]]
 row_p <- tidy(row_model) %>% filter(term == "row_number") %>% pull(p.value)
