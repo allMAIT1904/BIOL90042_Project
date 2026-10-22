@@ -1602,9 +1602,9 @@ gait_data
 
 The gait_data dataset contains information on the 16 PD patients enrolled in the trial, including their id (donorid column) treatment group (treatment column; L-DOPA control or new compound), age (age column; in years), and whether they were assigned to the exercise routine (exercise column; y = yes, n = no). It also contains measurements of the patients' vertical orientation (degrees off-axis) for each of the 700 measurements at 1-second intervals (\*\_secs columns).
 
-## Preparatory steps
+## Data analysis
 
-### Tidy up the gait data
+### Tidy the gait data
 
 First, check if there are any missing values in the gait data.
 
@@ -1619,6 +1619,7 @@ There are no missing values, so the raw data can now be formatted in a way suita
 
 ```{r}
 
+# re-format the gait data
 gait_long <- gait_data %>% 
   # convert orientation columns into long format (two columns for timepoint and orientation at that timepoint)
   pivot_longer(
@@ -1632,15 +1633,27 @@ gait_long <- gait_data %>%
 
 ```
 
-------------------------------------------------------------------------
+We can now view the dataset in long format. Each patient should have 700 rows, one for each timepoint measured.
 
-## Question 1: Determining a measure of gait stability
+```{r}
 
-*Plot each participants’ gait data and describe it using descriptive statistics. Which of these descriptive statistics do you think is most useful for capturing the overall gait smoothness and balance of a participant?*
+# view the formatted dataset
+gait_long
 
-### Plot the gait data for each participant
+# check that each of 16 patients have 700 columns
+gait_long %>% 
+  count(donorid, name = "n(timepoints)") %>% 
+  count(`n(timepoints)`, name = "n(patients)")
 
-Data for each participant can be plotted as a line graph, showing the patient's orientation over time.
+```
+
+The first output confirms that we maintain the donorid, treatment, age, and exercise columns, that the orientation data has been converted into two columns (timepoint in seconds and orientation at that timepoint in degrees off-axis), and that the new timepoint column is numeric. The second output confirms that the data includes all 16 patients with 700 rows each.
+
+### Determine a suitable measure of balance gait stability
+
+#### Visualisation of gait data
+
+Before we can determine a measure of balance and gait, we must visualise the data. Data for each participant can be plotted as a line graph, showing the patient's orientation over the 700 seconds of measurement.
 
 ```{r}
 #| fig-width: 10
@@ -1650,7 +1663,7 @@ Data for each participant can be plotted as a line graph, showing the patient's 
 ggplot(data = gait_long, aes(x = timepoint_secs, y = orientation_deg)) + 
   geom_line() + # plot a line graph
   facet_wrap(~donorid) + # make a separate plot for each patient
-  geom_hline(yintercept = 0, colour = 'red') + # add reference line at 0 degrees (which represents standing exactly upright)
+  geom_hline(yintercept = 0, colour = 'red', linewidth = 0.5) + # add reference line at 0 degrees (which represents standing exactly upright)
   theme_bw(base_size = 16) +
   theme(strip.background = element_rect(fill = 'white', colour = 'black'), 
         strip.text = element_text(colour = 'black')) +
@@ -1660,24 +1673,26 @@ ggplot(data = gait_long, aes(x = timepoint_secs, y = orientation_deg)) +
 
 ```
 
-These plots show that each patient's orientation varies many times over the 700 seconds measured, roughly oscillating around zero (upright). Some patients show more extreme variablity in orientation than others, and the amount of variability is suggestive of their balance and gait stability. For example, d019 shows the least variability, with their orientation remaining within 10 degrees off-axis, suggesting a fairly stable gait and good balance. Meanwhile, d141 shows the greatest variability, reaching up to 60 degrees off-axis, suggesting very poor balance and an unstable gait. \### Calculate various descriptive statistics each patient
+These plots show that each patient's vertical orientation varies many times over the 700 seconds measured, roughly oscillating around zero (perfectly upright). Some patients show more extreme variability in orientation than others, and we can assume that the amount of variability is indicative of their balance and gait stability. For example, d019 shows the least variability, with their orientation remaining within 10 degrees off-axis, suggesting a fairly stable gait and good balance. Meanwhile, d141 shows the greatest variability, reaching up to 60 degrees off-axis, suggesting very poor balance and an unstable gait.
 
-It would appear from the above plots that some measure of spread for a patient's orientation over the time measured would be a suitable proxy for their balance and gait stability. Various measures of spread could be suitable, including mean or median absolute value, standard deviation (SD), root mean square (RMS), range, or interquartile range (IQR). These values are calculated for each patient below. Also calculated are the mean and median orientation for each patient, which should equal approximately zero if the patient's orientation oscillates around vertical (as it would appear from the graph), or a non-zero value if the patient is systematically leaning to one side.
+#### Calculate various descriptive statistics each patient
+
+It would appear from the above plots that some measure of spread for a patient's orientation over the time measured would be a suitable proxy for their balance and gait stability. Various measures of spread could be suitable, including mean or median absolute value, standard deviation (SD), root mean square (RMS), range, or interquartile range (IQR). These values are calculated for each patient below. Also calculated are the mean and median orientation for each patient, which should equal approximately zero if the patient's orientation oscillates around zero degrees (as it would appear from the graph), or a non-zero value if the patient is systematically leaning to one side.
 
 ```{r}
 
 # calculate various summary statistics for each patient:
 gait_summary <- gait_long %>% summarise(
-   # mean and median for a measure of centre (from plots, expected to be approximately zero degrees)
+   # calculate mean and median for a measure of centre (from plots, expected to be approximately zero degrees)
   mean = mean(orientation_deg),
   median = median(orientation_deg),
-  # mean and median absolute values as a measure of spread
+  # calculate mean and median absolute values as a measure of spread
   mean_abs = mean(abs(orientation_deg)),
   median_abs = median(abs(orientation_deg)),
-  # range and interquartile range as measures of spread
+  # calcualte range and interquartile range as measures of spread
   range = max(orientation_deg) - min(orientation_deg),
   IQR = IQR(orientation_deg),
-  # standard deviation and root mean square as measures of spread
+  # calculate standard deviation and root mean square as measures of spread
   sd = sd(orientation_deg),
   rms = sqrt(mean(orientation_deg ^2)),
   # calculate these separately for each patient
@@ -1690,28 +1705,36 @@ gait_summary <- gait_long %>% summarise(
     by = "donorid"
   )
 
+# inspect the output data, summarising each patient's orientation over the 700 seconds of measurement
+gait_summary
+
 ```
 
-First, we can evaluate whether patients' orientation typically oscillates around a mid-point of zero degrees. Measures for this include the mean and median orientation being approximately zero and the sd and rms being approximately equal for each patient.
+From this data, we can first evaluate whether patients' orientation typically oscillates around a mid-point of zero degrees. Measures for this include the mean and median orientation being approximately zero and the SDand RMSbeing approximately equal for each patient.
 
 ```{r}
 
 # evaluate the distribution of the mean and median orientation
+message("summary of mean orientation")
 summary(gait_summary$mean)
+
+message("\nsummary of median orientation")
 summary(gait_summary$median)
 
 # check if patients' SD and RMS of orientation are approximately equal
+
+message("\nsummary of difference between SD and RMS")
 (gait_summary$sd - gait_summary$rms) %>% summary()
 
 ```
 
-From the above summaries, we can conclude that patients' mean and median orientations are typically within 1 degree of zero and usually even less, indicating that their orientation varies around a midpoint of being vertical. Additionally, patients' RMS and SD of orientation are very similar, with the largest difference between them being only 0.017 degrees, which also supports patients' orientation oscillating around zero degrees.
+From the above summaries, we can conclude that patients' mean and median orientations are typically within 1 degree of zero and usually even less, indicating that their orientation varies around a midpoint of verticality. Additionally, patients' RMS and SD of orientation are very similar, with the largest difference between them being only 0.017 degrees, which also supports patients' orientation oscillating around zero degrees. Since this analysis is only exploratory, statistical testing was not performed to confirm this
 
-For a measure of spread to use as a proxy for patients' balance and gait smoothness, we considered mean and median absolute values, range, IQR, SD, and RMS of their orientation measurements overall the 700 seconds measured. While measurements of gait smoothness or balance in the literature are usually more complex than the one used here, the RMS is often used (e.g. RMS centre of mass or pressure). Since SD and RMS were almost identical and SD is more widely understood and used, we took the SD of patients' orientation over time (sd(orientation)) as a proxy for balance and gait smoothness.
+For a measure of spread to use as a proxy for patients' balance and gait smoothness, we considered mean and median absolute values, range, IQR, SD, and RMS of their orientation measurements overall the 700 seconds measured. While measurements of gait smoothness or balance in the literature are usually more complex than the one used here, the RMS is often used (e.g. RMS centre of mass or pressure). Since SD and RMS were almost identical and SD is more widely understood and reported, we took the SD of patients' orientation over time (sd(orientation)) as a proxy for balance and gait smoothness. Higher sd(orientation) will indicate poorer balance and gait stability for a patient.
 
-SD is an appropriate measure of spread when there are minimal outliers and the data largely follows a normal distribution. This can first be investigated using a hisogram of the orientation measurements for each patient.
+#### Confirm that the chosen measure of balance and gait stability is appropriate for the data
 
-### Check that standard deviation of orientation is an appropriate measure of spread
+SD is an appropriate measure of spread when there are minimal outliers and the data largely follows a normal distribution. This can first be investigated visually using a histogram of the orientation measurements for each patient.
 
 ```{r}
 #| fig-width: 10
@@ -1723,7 +1746,7 @@ ggplot(data = gait_long, aes(x = orientation_deg)) +
   # make a separate plot for each patient
   facet_wrap(~donorid) +
   # add a reference line at 0 degrees - the expected centre
-  geom_vline(xintercept = 0, colour = 'black', linetype = 2, linewidth = 0.6) +
+  geom_vline(xintercept = 0, colour = 'black', linetype = 2, linewidth = 0.5) +
   theme_bw(base_size = 16) +
   theme(strip.background = element_rect(fill = 'white', colour = 'black'),
         strip.text = element_text(colour = 'black')) +
