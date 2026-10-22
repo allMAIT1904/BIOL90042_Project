@@ -123,7 +123,7 @@ prs_long
 prs_long_new <- prs_long %>%  
   left_join(  
     # Keep locus and beta.
-    gwas_top_hits %>% select(locus, beta),
+    gwas_top_hits %>% dplyr::select(locus, beta),
     # Match using the locus name.
     by = "locus"  
   )
