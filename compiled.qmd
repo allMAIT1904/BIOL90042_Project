@@ -618,7 +618,7 @@ Therefore, the null hypothesis of equal means was rejected. The higher mean PRS 
 
 ## Summary of Questions and Answers
 
-### Question 1. 
+### Question 1.
 
 #### *Calculate a PRS for each participant. Which participant has the highest PRS? The lowest?*
 
@@ -626,11 +626,9 @@ Polygenic risk scores (PRS) were calculated for 300 participants using 15 geneti
 
 Participant d003, a PD case, had the highest PRS (2.824). Participant d167, also a PD case, had the lowest PRS (0.157).
 
-### Question 2. 
+### Question 2.
 
 #### *Plot and describe (with descriptive statistics) the distribution of PRS for both cases and controls.*
-
-*Plot and describe (with descriptive statistics) the distribution of PRS for both cases and controls.*
 
 Histograms and a boxplot were used to compare PRS distributions between PD cases and controls. Each group contained 150 participants.
 
@@ -642,7 +640,7 @@ Both distributions were right-skewed, with greater right skew in controls. The d
 
 Overall, PD cases had higher PRS values and greater variation, suggesting greater genetic predisposition to PD based on the variants included in this analysis.
 
-### Question 3. 
+### Question 3.
 
 #### *Is there a statistically significant difference in the PRS of cases and controls? Ensure you check all the assumptions of the test you choose.*
 
