@@ -1566,6 +1566,42 @@ Five compounds were identified as significantly associated with increased neuron
 - Candidate hits should be retested in independent plates, across a concentration range, with orthogonal assays such as live/dead imaging, neurite analysis, mitochondrial assays, or oxidative-stress readouts.
 - Strong candidates should subsequently be tested in neurons derived from additional healthy donors and patients with Parkinson's disease.
 
+------------------------------------------------------------------------
+
+# Clinical trial
+
+## Introduction
+
+This section focuses on the results of a preliminary clinical trial for a potential new PD therapy.
+
+### Background
+
+One of the hit compounds from the PD drug screen is already approved for other indications in Australia. This means that it could more easily be applied for PD treatment than an entirely new compound, if effective in treating PD. A preliminary clinical trial was run to test the efficacy of this drug in treating PD motor symptoms, compared to the standard of care L-DOPA.
+
+16 PD patients were enrolled in the trial and randomly assigned to new compound or L-DOPA groups. Four patients in each trial were additionally randomly assigned to a daily exercise routine, as regular exercise is known to help manage PD motor symptoms.
+
+The effect of each drug on motor symptoms was tested using a smart watch, which measured patients' vertical orientation (in degrees off-axis) while walking during their normal daily activities. Zero degrees indicates an entirely vertical orientation. Patients' orientation was measured every second for 700 seconds. Patients' orientation provides a measure of their balance and the stability of their gait.
+
+### Aims
+
+This section has three main aims:
+
+1.  To determine a suitable summary statistic of the orientation data that serves as a proxy for patients' balance and gait stability over the 700 seconds of measurement.
+2.  To obtain preliminary data on effect of the new drug on balance and gait stability in PD patients, particularly whether it may provide superior management of motor symptoms compared to the current standard of care.
+3.  To determine the effect of the exercise routine and age on balance and gait stablity, and how they affect the relationship between treatment (standard of care vs new compound) and gait stability.
+
+### The dataset
+
+The gait dataset contains the data from the clinical trial and can be viewed with the below code.
+
+```{r}
+
+gait_data
+
+```
+
+The gait_data dataset contains information on the 16 PD patients enrolled in the trial, including their id (donorid column) treatment group (treatment column; L-DOPA control or new compound), age (age column; in years), and whether they were assigned to the exercise routine (exercise column; y = yes, n = no). It also contains measurements of the patients' vertical orientation (degrees off-axis) for each of the 700 measurements at 1-second intervals (\*\_secs columns).
+
 ## Preparatory steps
 
 ### Tidy up the gait data
