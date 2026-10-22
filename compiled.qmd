@@ -578,6 +578,12 @@ prs_wilcox <- wilcox.test(
 prs_wilcox
 ```
 
+**Result interpretation:**
+
+The Wilcoxon rank-sum test showed a statistically significant difference in PRS between PD cases and controls (p \< 0.001).
+
+This result supports the finding that PRS values differ between the two groups. The test was used as a non-parametric check because the control group showed a significant departure from normality.
+
 #### 14B: Welch's t-test
 
 ```{r}
@@ -600,42 +606,15 @@ prs_welch <- t.test(
 prs_welch
 ```
 
-#### 14C: Simple Linear Regression
-
-```{r}
-## Use a simple linear model to compare PRS between groups.
-## The model estimates the mean difference using group status.
-## The standard model test assumes equal residual variances.
-
-prs_lm <- lm(
-  # Use PRS as the outcome and status as the predictor.
-  PRS ~ status,
-  data = prs_final
-)
-```
-
-```{r}
-## Display the model coefficients, standard errors, and p-values.
-summary(prs_lm)
-```
-
 **Result interpretation:**
 
-The Shapiro–Wilk test showed a significant departure from normality in controls (p \< 0.001), but not in cases (p = 0.074).
+Welch's t-test was used as the main test to compare mean PRS between the two groups because it does not require equal variances. With 150 participants per group, it is also reasonably robust to moderate non-normality.
 
-The case group also had a higher SD (0.452) than the control group (0.357). The residual plot showed a wider spread in cases. Therefore, equal variances were not assumed.
+The test showed a statistically significant difference in mean PRS (t = 6.491, df = 282.98, p \< 0.001).
 
-I used Welch's t-test to compare mean PRS between groups. This test allows unequal variances. With 150 participants per group, it is also reasonably robust to moderate non-normality.
+The mean PRS was higher in PD cases (1.192) than controls (0.887). The mean difference was 0.305 (95% CI: 0.213–0.398).
 
-The Welch t-test showed a statistically significant difference in mean PRS, t(282.98) = 6.491, p \< 0.001.
-
-The mean PRS was higher in cases (1.192) than controls (0.887). The mean difference was 0.305 (95% CI: 0.213–0.398).
-
-I also used the Wilcoxon rank-sum test as a non-parametric check. It showed a significant difference between the groups (p \< 0.001).
-
-The simple linear regression estimated that controls had a mean PRS 0.305 lower than cases. However, its standard test assumes equal residual variances, so Welch's t-test was used for the main comparison.
-
-Therefore, I rejected the null hypothesis of equal means. PD cases had a significantly higher mean PRS than controls.
+Therefore, the null hypothesis of equal means was rejected. The higher mean PRS in PD cases is consistent with greater genetic predisposition to PD based on the variants included in this analysis.
 
 ## Summary of Questions and Answers
 
