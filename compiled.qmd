@@ -401,25 +401,29 @@ Is there a statistically significant difference in the PRS of cases and controls
 
 ### Step 9: State the hypotheses
 
-PRS is a numerical score treated as continuous in this analysis. Status is a categorical variable with two groups: case and control.
+The main analysis uses Welch's two-sample t-test to compare group mean PRS values. This test does not assume equal population variances. The hypotheses below apply to the difference in means tested by Welch's t-test.
 
-- **Null Hypothesis (H0):** Cases and controls have the same mean PRS.
-- **Alternative Hypothesis (H1):** Cases and controls have different mean PRS.
-- **Significance level:** α = 0.05.
+- **Null hypothesis (H0)**: The population mean PRS is equal in PD cases and healthy controls.
 
-### Step 10: Check Assumptions Before Statistical Testing
+- **Alternative hypothesis (H1)**: The population mean PRS differs between PD cases and healthy controls.
 
-I will compare PRS between cases and controls. First, I will check the assumptions.
+- **Significance level**: α = 0.05, using a two-sided test.
 
-**Data type:** PRS is a numeric variable. Status has two groups: case and control.
+### Step 10: Assess the Assumptions of Welch's t-test
 
-**Independence:** Each participant has one PRS value. However, I cannot confirm whether participants are related or clustered.
+**Data type**: PRS is a numerical outcome, and disease status defines two groups (PD cases and healthy controls).
 
-**Normality:** I will use Q-Q plots and Shapiro–Wilk tests.
+**Independence**: Each participant contributes one PRS value. The source file does not establish whether participants are related or otherwise clustered, so full independence relies on the sampling design.
 
-**Equal variances:** I will compare the spread of PRS values using descriptive statistics and residual plots.
+**Normality**: The relevant condition concerns the PRS distribution (or equivalently, within-group residual distribution) within each group, not the distribution of disease status. Q-Q plots and Shapiro–Wilk tests will assess this assumption.
+
+With 150 participants per group, Welch's t-test is reasonably robust to moderate deviations from normality, although strong outliers still merit attention.
+
+**Equal variances**: Equal population variances are not required for Welch's t-test. Nevertheless, group standard deviations, residual plots and a median-centred Levene's test (Brown–Forsythe variant) will be used to assess variability and support a transparent comparison.
 
 ### Step 11: Calculate fitted values and residuals
+
+Residuals describe how far each PRS value is from its group's mean, providing a way to compare the within-group spreads.
 
 ```{r}
 ## Calculate fitted values and residuals for each group.
@@ -444,6 +448,8 @@ prs_residuals
 ### Step 12: Check Normality of PRS in Each Group
 
 #### 12A: Create Q-Q Plots to Check Normality
+
+A Q-Q plot compares observed PRS quantiles with the quantiles expected under a normal distribution. If the points deviate from the reference line, especially at the tails, this suggests that the data may not be normally distributed.
 
 ```{r}
 ## Use Q-Q plots to check whether PRS is normally distributed.
@@ -470,6 +476,14 @@ prs_qqplot <- ggplot(prs_final, aes(sample = PRS, fill = status, colour = status
 ## Display the Q-Q plots for both groups.
 prs_qqplot
 ```
+
+**Result interpretation:**
+
+The original Q-Q plots indicate that cases lie closer to the reference line, while controls show greater departures, especially in the upper tail.
+
+This suggests that normality is less plausible for the control group.
+
+The Shapiro–Wilk tests in Step 12B provide an additional quantitative check.
 
 #### 12B: Use the Shapiro–Wilk Test to Check Normality
 
@@ -501,9 +515,9 @@ prs_final %>%
 
 **Result interpretation:**
 
-The Shapiro–Wilk test gave a p-value of 0.074 for cases and 0.000127 for controls. At α = 0.05, the control group showed a significant departure from normality, while the case group did not.
+The Shapiro–Wilk test gave p-values of 0.074 for cases and 0.000127 for controls.
 
-The normality assumption was not met in the control group. However, Welch's t-test is reasonably robust to moderate non-normality with 150 participants per group.
+At α = 0.05, there is no statistically significant evidence of non-normality in cases, whereas controls show a significant departure from normality.
 
 ### Step 13: Check the Spread of Residuals Between Groups
 
