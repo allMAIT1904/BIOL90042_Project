@@ -656,132 +656,201 @@ A Wilcoxon rank-sum test was also performed as a non-parametric check. It showed
 
 Therefore, I rejected the null hypothesis. PD cases had a significantly higher mean PRS than controls in this dataset. However, this association does not establish causation.
 
-# RNA-seq of patient-derived neurons
+# RNA-seq of patient iPSC-derived neurons
+
+## Introduction
+
+Parkinson's disease (PD) is a neurodegenerative disorder characterised by the progressive loss of dopaminergic neurons. This report analyses RNA sequencing data to compare the gene expression of PD neurons with that of healthy controls, using the `edgeR` and `limma` (voom) pipeline.
+
+### Background
+
+To compare the transcriptional profiles of PD neurons with those of healthy controls, induced pluripotent stem cells (iPSCs) from 8 PD patients and 8 age- and sex-matched healthy controls were differentiated into dopaminergic neurons. After two weeks in culture, RNA was isolated, sequenced and pre-processed to produce a count matrix for 10,100 genes across 16 samples.
+
+### Aims
+
+The aim of this report is to characterise the transcriptional differences between Parkinson's disease (PD) and healthy control dopaminergic neurons. This analysis aims to:
+
+1. Identify genes that are differentially expressed between PD cases and healthy controls, and visualise the results using MA and volcano plots.
+2. Identify the Gene Ontology (GO) categories associated with the differentially expressed genes.
+3. Assess whether samples cluster according to disease status.
+
+## Code and Interpretation
 
 ### Checking the Datasets
 
 ```{r}
+# Understanding the data structure before analysis 
 head(dge$samples) # Determining the samples in the study 
-head(dge$genes) # Determining the genes ?
-head(dge$counts) # Determining the counts in the dataset
+head(dge$genes) # Determining the genes
+head(dge$counts) # Determining the raw read counts in the dataset
 
+# Checking how the experimental groups are coded 
 dge$samples$group
-class(dge$samples$group) #Looking at the groups of the samples in dge, we are able to see that they are in the class factors 
+class(dge$samples$group) #Stored as factors, needed for building the design matrix
 
-## Specifying the order of the levels, setting the 'control' group first to ensure accurate downstream analysis and plotting
+# Specifying the order of the levels, setting the 'control' group as the first(reference) level of the group factor to ensure accurate downstream analysis and plotting
 dge$samples$group <- factor(dge$samples$group, levels = c("control", "case"))
+# By putting control first, model coefficients and contrasts are interpreted relative to the control, e.g. positive logFC = higher expression in PD cases 
 ```
 
 ### The RNA Sequencing Pipeline
 
-**Filtering low count genes**
+### Filtering low count genes
 
 ```{r}
-## Filtering out lowly expressed genes to ensure reliable testing 
+# Filtering out lowly expressed genes to ensure reliable testing as gene with low counts carry little information for detecting differential expression 
 keep <- filterByExpr(dge)
 
-## Using table() to create a summary to determine how many genes we will keep 
+# Using table() to create a summary to determine how many genes we will keep 
 table(keep)
-## The number that fall within TRUE we will keep and FALSE will be filtered out 
-proportions(table(keep))
-```
+# The number that fall within TRUE we will keep and FALSE will be genes filtered out and removed for analysis.
 
-Upon filtering 204 genes were removed and 9896 of 10,100 genes were kept. This meant that 2% of genes were filtered out and 98% of genes were retained.
+proportions(table(keep)) # The same summary as proportions, to show the fraction of genes removed and retained
+```
+Filtering removes 204 of the 10,100 genes, leaving 9,895 genes for analysis. This is then subsetted to retain these genes and recalculate the library sizes.
 
 ```{r}
-## Performing the filtering using the square brackets 
-dge <- dge[keep, , keep.lib.sizes = FALSE]
-## checking the dimensions of the count matrix AFTER filtering to see if the number of genes have been reduced 
+# Subset the DGEList using the square brackets and the  logical vector 'keep'
+dge <- dge[keep, , keep.lib.sizes = FALSE] #Recalculates library size from the retained genes
+
+# Checking the dimensions of the count matrix after filtering to see if the number of genes have been reduced 
 dim(dge$counts) # 10100 16 now 9896 16
 ```
 
-**Normalisation**
+### Normalisation
 
 ```{r}
-## TMM corrects for differences in composition between samples, reducing bias
+#TMM corrects for differences in RNA composition between samples, reducing bias
 dge <- normLibSizes(dge, method = "TMM") 
 
-## Normalisation factors are then calculated for each sample and puts it in the samples dataframe of the DGE list
+# Normalisation factors are then calculated for each sample and puts it in the samples dataframe of the DGE list
 dge$samples # All normalisation factors are close to 1 across all samples, suggesting minimal differences in RNA composition between samples
+summary(dge$samples)
 ```
 
-**Setting up the Design Matrix**
+### MDS plot
+
+An MDS plot is conducted as a quality control step to check whether samples cluster by group, and look for potential outliers or unexpected patterns in the dataset, before modelling.
 
 ```{r}
-#just on sample as this contains all the meta data and covariates. 
-design <- model.matrix(~ 0 + group, data = dge$samples)
+#visualising our data prior to statistical testing 
+plotMDS(dge)
+# Specifying the name of the group the samples belong to by labelling 
+plotMDS(dge, labels = dge$samples$group)
+```
+
+Samples that appear closer together have more similar expression profiles, based on the leading log-fold-change distances used by plotMDS(). Cases 1 -5 cluster together being further apart than the controls samples and cases 6-8. This suggests their expression profiles are more variable within the group than the controls vs cases are from each other??
+
+### Setting up the Design Matrix
+
+The design matrix specifies how each sample contributes to the linear model. We use a model without an intercept so that the control and case groups are represented by separate coefficients.
+
+```{r}
+# Build the design matrix from dge$sample as this contains all the sample metadata and covariates
+design <- model.matrix(~ 0 + group, data = dge$samples) # The intercept is excluded so each coefficient is  the mean expression of one group (control and case). This makes the comparison amongst the two groups easy to specify. 
 design
 ```
 
 Output columns represent the groups, with the values being either 1 representing the sample being a member of either the control or case group or 0 in which the sample is not a member of that group.
 
-**Setting up the Contrasts Matrices**
+### Setting up the Contrasts Matrices
+
+The contrast matrix defines the comparison of interest: PD cases minus healthy controls. Positive log₂ fold changes therefore indicate higher expression in PD cases, while negative values indicate lower expression.
 
 ```{r}
-## rename the columns of the design matrix to be just 'control' instead of 'groupcontrol'and likewise with 'groupcase' to be just 'case'
+# Rename the columns of the design matrix to be just 'control' instead of 'groupcontrol'and likewise with 'groupcase' to be just 'case' for readability
 colnames(design) <- c("control","case")
 
-## Now, we will make the contrast matrix
+# Setting up the contrast matrix
 contr_matrix <- makeContrasts(
-  # our pairwise comparisons will be between are control and case groups
-  casevscontrol = "case - control",
+  casevscontrol = "case - control",# Specify the name and formula for each specific contrast,  case - control, so positive logFC = higher in PD 
   levels = design)
 
 contr_matrix
 ```
 
-**\*\* Adding genes name to the DGE list**
+Output of this code will demonstrate that the case group will be equal to 1, while the control group will be equal to -1.
+
+### Adding genes name to the DGE list
+
+The purpose of the following code is to add the respective gene names to the DGE list. It matches each gene’s Entrez ID in `dge$genes` to the lookup table `entrez_genename_key`, adds the gene name (renamed `SYMBOL`) and a description.
 
 ```{r}
-gene_info <- left_join(
-  dge$genes, # left table: column genes
-  entrez_genename_key, # right table: lookup with names 
-  by =  join_by (genes == entrezid)) # match genes in the left table to entrezid on the right 
-colnames(gene_info)
+gene_info <-
+  dge$genes [, "genes", drop = FALSE] |>  # keeping only the Entrez ID column 
+  left_join( entrez_genename_key, # right table: lookup with names 
+  by =  join_by (genes == entrezid)) |>  # match genes in the left table to entrezid on the right 
+  dplyr::rename(SYMBOL = gene_name) # rename so the column is called SYMBOL
 
-#gene_info <- gene_info |> dplyr::rename(SYMBOL = gene_name)
-colnames(gene_info)
+colnames(gene_info) # genes, SYMBOL, description
+# Optional checks to ensure join was reliable 
+nrow(gene_info) == nrow(dge$counts)  # TRUE, the join didn't add or drop genes 
 
 rownames(gene_info) <- rownames(dge$counts) # join resets row names, put the IDs back
-dge$genes <- gene_info
+dge$genes <- gene_info # store the annotation into the dge list
 head(dge$genes) 
+
+sum(is.na(gene_info$SYMBOL)) # 0, this shows that every gene was matched
+
 ```
 
-**Fitting the Model**
+### Variance Modelling with voom
+
+The voom() function converts the filtered counts to log₂-counts per million (logCPM), using the library sizes and TMM normalisation factors calculated earlier. It also estimates how variability changes with expression level and assigns precision weights to account for these differences during linear modelling.
 
 ```{r}
-## run voom() and then fit linear model
-
-## We will then proceed to use the voom() function of limma to converts our raw counts to log-cpm values
-## This will involve using the library sizes and normalisation factors calculated during the filtering and normalisation steps 
+# voom converts counts to log-CPM and calculates precision weights from the mean-variance trend
 v <- voom (dge, design, plot = TRUE)
+```
 
-## After running voom, we will fit our linear model on voom output 
+The mean-variance trend is overall smooth and decreasing, indicating that the precision weights are appropriate.
+
+### Fitting the Linear Model
+
+After running voom, we fit a weighted linear model to each gene using the expression values and precision weights produced by voom(). We then apply the case-minus-control contrast to estimate the log₂ fold change between PD cases and healthy controls.
+
+```{r}
 vfit <- lmFit(v)
-head(vfit$coefficients) # Check coefficients
+head(vfit$coefficients) # Check coefficients 
 
-## We can then use contrasts.fit() to calculate coefficients for each contrast specified in the contr_matrix.  
-vfit <- contrasts.fit(vfit, contrasts = contr_matrix)
+# We can then use contrasts.fit() to calculate coefficients for each contrast of interest (case - control) specified in the contr_matrix.  
+vfit <- contrasts.fit(vfit, contrasts = contr_matrix) # Coefficients for case - control 
 head(vfit$coefficients)
+```
 
-## Conducting our statistical testing 
+### Statistical Testing
+
+We apply empirical Bayes moderation to stabilise the gene-wise variance estimates by borrowing information across genes. This produces test statistics for the case-versus-control comparison. We then use decideTests() to classify genes as higher in PD, lower in PD, or not significantly different after multiple-testing correction.
+
+```{r}
+# Empirical Bayes moderation shrinks gene-wise variances towards the overall trend
 efit <- eBayes(vfit)
+
+# Classifying genes as down (-1), not significant (0) or up (1)
 dt <- decideTests(efit) # Using decideTests to conduct for multiple testing 
 summary(dt)
 ```
 
+### Differential Expression Results Table
+
+We use topTable() to extract the results for all tested genes, including gene annotations, log₂ fold changes, average expression, and raw and BH-adjusted p-values. By default, topTable() ranks genes by the B-statistic, which represents the log-odds of differential expression.
+
 ```{r}
-## Using the function topTable() to obtain more information on the differentially expressed gene for contrast between control vs case group
+#Using the function topTable() to obtain more information on the differentially expressed gene for contrast between control vs case group
 top <- topTable(efit, coef = "casevscontrol", n = Inf)
 
-## to make the dataframe print nicer, let's convert it to a tibble
+# Convert to tibble, so its prints more neatly
 top_tibble <- as_tibble(top)
 top_tibble
 ```
 
-**Question 1:** Which genes are differentially expressed between PD cases and healthy controls? Please also visualise your DE results with appropriate plot(s).
+### Visualising differential expression
 
-**MA plot**
+We use MA and volcano plots to examine the direction and magnitude of expression changes and highlight genes classified as differentially expressed.
+
+### MA plot
+
+The MA plot shows each gene’s log₂ fold change against its average logCPM expression.
 
 ```{r}
 ma_plot_data <- tibble(
@@ -792,12 +861,12 @@ ma_plot_data <- tibble(
   p_value = efit$p.value[, "casevscontrol"]
 )
 
-## Using ggplot and tibble prepared 
+# Using ggplot and tibble prepared 
 ma_plot_data |> 
   ggplot(aes(x = AvgExpr, y = logFC, col = status)) +
   geom_point()
 
-## Refining the MA plot 
+# Refining the MA plot 
 ma_plot_data_fct <- ma_plot_data |> 
   mutate(
     # replace status with a new factor
@@ -816,11 +885,11 @@ top_de_genes <- ma_plot_data_fct |>
 # Using the function topTable() to obtain more information on the differentially expressed gene for contrast between control vs case group
 top <- topTable(efit, coef = "casevscontrol", n = Inf)
 
-# to make the dataframe print nicer, let's convert it to a tibble
+# To make the dataframe print nicer, let's convert it to a tibble
 top_tibble <- as_tibble(top)
 top_tibble
 
-## a named vector to colour the points by 
+# A named vector to colour the points by 
 scale_cols <- c(
   "Not DE" = neutral_colour,
   "Lower in PD" = control_colour,
@@ -839,18 +908,18 @@ ggplot(ma_plot_data_fct, aes(x = AvgExpr, y = logFC, col = status)) +
   ) +
   scale_colour_manual(values = scale_cols) + 
   theme_classic(base_size = 14) +
-  labs(title = "MA plot: PD cases vs healthy controls",
-       x = "Average log expression", y = "log2 fold change (PD vs control)")
+  labs(title = "MA plot: PD cases vs Controls",
+       x = "Average logCPM expression", y = "log2 fold change (PD vs control)")
 ```
 
-Each data point is representative of a gene, with its average expression on the x axis and its fold change on the y-axis. Most genes cluster around zero, which is expected when most genes do not change and normalisation has worked, representing non differentially expressed genes and no bias with expression levels. Whilst differentially expressed genes sit clearly above or below the clustering.
+Colours distinguish genes with higher expression in PD, lower expression in PD, and no significant difference. The 15 genes with the smallest raw p-values are labelled.
 
-The genes higher in PD (for example IRGM, HDAC6, PRKN) shown upregulation. Whilst the genes lower in PD (PDE7B, RIT2, LARGE1) have shown a signficant down regulates.
+### Volcano Plot
 
-**Volcano Plot**
+The volcano plot shows the size of each gene's expression change (log2fold change, x-axis) against how statistically significant it is (-log10pvalue). The plot will highlight genes with large statistically differences between PD cases and controls.
 
 ```{r}
-ggplot(ma_plot_data_fct, aes(x = logFC, y = -log10(p_value), col = status)) +
+ggplot(ma_plot_data_fct, aes(x = logFC, y = -log10(p_value), col = status)) + #change to adj p
   geom_point(
     data = ma_plot_data_fct |> filter(status == "Not DE"),
     size = 0.1
@@ -869,61 +938,50 @@ ggplot(ma_plot_data_fct, aes(x = logFC, y = -log10(p_value), col = status)) +
         
 ```
 
-UVRAG and HERC1 appears highest on the right side of the volcano plot, demonstrates a low p value reflects strong statistical evidence of a genuine difference, even though the effect size is modest, whereas PDE78, LARGE1 and RIT2 demonstrate larger fold changes, though this could easily reflect noisy estimation (e.g. from a highly variable gene) rather than a real, reproducible effect as a result of weak evidence or low counts within the sample.
+### Linking genes to their gene ontology (GO) terms
 
-**Question 2:** Which gene ontology families do the DE genes belong to?
+We select genes with BH-adjusted p-values below 0.05 and record whether their expression is higher or lower in PD. We then join these genes to the supplied GO annotation table using Entrez IDs and count the annotated genes within each GO category by expression direction.
 
 ```{r}
+# Select DE genes (adjusted p<0.05) and record whether each is higher or lower 
 de_genes <- top_tibble |> 
-  filter(adj.P.Val < 0.05) |>
+  filter(adj.P.Val < 0.05) |> # What are we using this for
   mutate(direction = if_else(logFC > 0, "Higher in PD", "Lower in PD"))
 
-## Join to the GO table 
+## Join to the GO table by Entrez ID 
 de_go <- inner_join(de_genes, gene_ontology, 
-                    by = join_by(genes == entrezgene_id)) # inner_join keeps only DE genes that appear in the GO table and adds the GO term 
+                    by = join_by(genes == entrezgene_id)) # inner_join keeps only DE genes that appear in the GO table and adds their GO term 
+
+# Listing each GO term with its DE genes and their effect sizes
 de_go |> arrange(desc, SYMBOL) |> dplyr::select(desc, SYMBOL, logFC, adj.P.Val)
 
-## Counts genes per go term and direction 
+# Counts DE genes per GO term and direction 
 de_go |> count(desc,direction)
 ```
 
-Every differentially expressed genes belong to one of the two gene ontology families. The genes upregulated in PD cases are all in autophagy (for example PRKN, ATG5, and VPS4A), and the genes downregulated in PD cases are all in synaptic transmission (for example RIT2, CDK5, and APBA3). This came from joining the differentially expressed genes to the gene_ontology table by Entrez ID and counting genes per term, split by direction.
+All 20 differentially expressed genes were annotated to their respective GO term in the provided table above, and together they covered 2 GO families: Autophagy and Synaptic transmission. Autophagy contained 10 genes that were higher in PD, while Synaptic transmission contained 10 lower. This shows the biological processes the DE genes are associated with.
 
-Higher autophagy genes could be a result of neurons compensating for protein build up or mitochondrial stress. While on the other hand, reduction synaptic genes is a result of reduced neuronal signalling.
+### Creating a Heatmap
 
-**Question 3:** Is the clustering of samples by gene expression consistent with their disease status as cases and controls?
-
-**MDS plot**
+We create a heatmap of the top 30 genes returned by topTable() to compare their expression patterns across samples. The heatmap uses logCPM values scaled within each gene, so colours represent relative expression across samples rather than absolute differences between genes. Hierarchical clustering groups genes and samples with similar expression patterns. The selected genes are top-ranked genes, not necessarily all statistically significant.
 
 ```{r}
-#visualising our data prior to statistical testing 
-plotMDS(dge)
-## Specifying the name of the group the samples belong to by labelling 
-plotMDS(dge, labels = dge$samples$group)
-```
-
-From the MDA plot above, Dimension 1 explains 9 % of the variation, seperating cases 1 to the right side of the plot from everything else whilst controls 1 to 8 sit on the left. Though cases 6-8 appears to cluster together close to the controls, suggesting heterogeneity between patients as similar gene expression profiles fall within the same phenotype group.
-
-**Creating a Heatmap**
-
-```{r}
-## The 30 most significant genes for our contrast 
+# The 30 most significant genes for our contrast (What does signif mean, toptable is automatically sorted, by adj p-value)
 top_genes <- bind_rows(
   topTable(efit, coef = "casevscontrol", n = 30)
 ) |> 
   dplyr::select(genes, SYMBOL)  |> 
   distinct() # remove duplicates 
 
-## filter the count matrix to find just those genes and label rows with genes names
+# Filter the count matrix to find just those genes and label rows with genes names
 top_gene_expr <- cpm(dge, log = TRUE)[as.character(top_genes$genes), ]
 rownames(top_gene_expr) <- top_genes$SYMBOL
 
-## Annotation information for the heatmap 
+# Annotation information for the heatmap 
 sample_anno <- data.frame(
   group = dge$samples$group,
-  row.names = rownames(dge$samples)
-)
-## ann <- data.frame(Group = dge$samples$group, row.names = colnames(top_gene_expr))
+  row.names = rownames(dge$samples))
+  
 heatmap <- pheatmap(
     top_gene_expr, 
     scale = "row",
@@ -938,7 +996,33 @@ heatmap <- pheatmap(
     main = "Top 30 genes: PD cases versus controls", fontsize = 13)
 ```
 
-The heatmap shows the top 30 genes in the datasets, which include all differentially expressed genes, with samples clustered by their expression. The branches along the top show which samples have similar expression. Based on this dataset, cases 1 to 5 form one branch, whilst all eight controls form another. Interestingly, cases 6, 7 and 8 form a third small branch next to the controls, suggesting that expression may be quite close to control levels and partly consistent with the disease status, matching the MDS plots. This suggests that differentially expressed genes are driven mainly by cases 1 to 5.
+## Questions
+
+### Question 1 
+
+*Which genes are differentially expressed between PD cases and healthy controls? Please also visualise your DE results with appropriate plot(s)*
+
+20 genes in total were differentially expressed (adjusted p\<0.05). 10 genes (UVRAG, HERC1, DNM2,PRKN, IRGM, HDAC10, RNF166, HDAC6, ATG5 and VPS4A) were found to be upregulated and showed higher expression, while the following 10 genes (RIT2, MAPK1, APBA3, RPS6KA1, LRP6, CDK5, LARGE1, DRD4, UNC119 and PDE7B) showed a lower expression in PD cases in comparison to the controls.
+
+From the MA plot, each data point is representative of a gene, with its average expression on the x axis and its log2fold change on the y-axis. Most genes cluster around zero, which is expected when most genes do not change and normalisation has worked.There is no obvious trend in fold change across expression levels, which suggests no systematic bias. Whilst the differentially expressed genes lie clearly above or below this cluster.
+
+Likwise, the volcano plotshows the log2 fold change against the significance of each gene. RIT2 is the most significant gene (adjusted p valye of 0.0000105) and is lower in PD, while UVRAG and HERC1 are the most significant genes higher in PD (adjusted p value of 0.0000331 and 0.0000333 respectively).PDE78 demonstrates the largest fold change of -6.74 without a slightly weaker though still strong evidence with an adjusted p value of 0.0018.All 20 genes passed the adjusted p \< 0.05 cutoff, and only ATG5, UNC119 and VPS4A had adjusted p-values above 0.01.Overall, the volcano plot shows the DE genes standing apart from the non-DE genes at the top left and right, with RIT2, APBA3, UVRAG, MAPK1 and HERC1 being the most significant.
+
+### Question 2
+
+*Which gene ontology families do the DE genes belong to?*
+
+All 20 differentially expressed genes belong to one of the two gene ontology families. The 10 genes higher in PD cases were all annotated to autophagy (for example PRKN, ATG5, and VPS4A), and the 10 genes lower in PD cases were all annotated to synaptic transmission (for example RIT2, CDK5, and APBA3). This came from joining the differentially expressed genes to the gene_ontology table by Entrez ID and counting genes per term, split by direction.
+
+Upregulated expression of autophagy genes could reflect neurons responding to protein accumulation or mitochondrial stress, which are known features od PF. While on the other hand, downregulated expressio of synaptic transmission gene may be consistent with reduced neuronal signalling in PD neurons.
+
+### Question 3
+
+*Is the clustering of samples by gene expression consistent with their disease status as cases and controls?*
+
+From the MDS plot above, dimension 1 explains 9 % of the variation and separates cases 1 to 5 on the right of the plot from controls 1 to 8 on the left. Interestingly,cases 6-8 appears to cluster together close to the controls, suggesting heterogeneity between patients. Dimension 2 explains a further 7%, so the two dimensions together capture only 16% of the variation. The MDS plot is therefore a limited summary of the samples, because most of the variations lies in other dimensions.
+
+The heatmap of the top 30 genes in the datasets, which includes all 20 differentially expressed genes shows the same patterns. The branches along the top show which samples have similar expression. Based on this dataset, cases 1 to 5 form one branch, whilst all eight controls form another. Cases 6, 7 and 8 form a third, small branch next to the controls, suggesting their expression may be quite close to control levels. Clustering by expression is therfore partly consistent with disease status as differentially expressed genes appears to be driven mainly by cases 1 to 5, matching the MDS plots.
 
 # Drug screening
 
