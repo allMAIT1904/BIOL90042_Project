@@ -275,6 +275,8 @@ Plot and describe the distribution of PRS for both cases and controls.
 
 ### Step 7: Calculate PRS Descriptive Statistics for Case and Control Groups
 
+Calculate the sample size, mean, median, standard deviation and range of PRS separately for the two groups.
+
 ```{r}
 ## Use the final PRS data to calculate summary statistics.
 prs_summary <- prs_final %>%  
@@ -308,11 +310,13 @@ The case group had a higher standard deviation (0.452) than the control group (0
 
 The PRS ranged from 0.157 to 2.824 in the case group and from 0.307 to 1.979 in the control group.
 
-Overall, the case group had a higher mean PRS than the control group. However, these are descriptive statistics that only show differences between the two groups. They do not establish whether the differences are statistically significant.
+The higher average PRS among cases is consistent with a greater burden of the weighted PD-associated genetic effects included in this score. However, these descriptive differences do not alone establish statistical significance or allow reliable individual diagnosis.
 
 ### Step 8: Visualise and Compare PRS Distributions Between Case and Control Groups
 
 #### 8A: Make histograms
+
+Histograms show the shape, spread and skewness of PRS distributions.
 
 ```{r}
 ## Use histograms to examine the distribution of PRS in each group.
@@ -339,25 +343,43 @@ prs_histogram
 
 Step 8A: Histogram
 
-The histograms show the distribution of PRS values in the case and control groups. Both groups have a single main peak and are right-skewed. The control group shows more right skew than the case group.
+Both histograms show a single main peak and some right skew, with greater right skew in controls in the original report.
 
-The case group has a wider distribution, with PRS values ranging from 0.157 to 2.824. The control group has a narrower distribution, ranging from 0.307 to 1.979.
+The case distribution extends across a wider PRS range and is shifted towards higher values, although the two groups overlap.
 
-The case group also has a higher mean PRS (1.192) than the control group (0.887). This suggests that participants in the case group generally have higher PRS values.
+This is consistent with higher relative genetic predisposition among PD cases as measured by this PRS.
 
 #### 8B: Make a boxplot
+
+A boxplot makes it easier to compare medians, variability and potential outliers.
 
 ```{r}
 ## Use a boxplot to compare PRS values between the case and control groups.
 ## Boxplots show the median, spread, and possible outliers in each group.
-prs_boxplot <- ggplot(prs_final, aes(x = status, y = PRS, fill = status)) + 
-  geom_boxplot(width = 0.6, alpha = 0.9) + 
-  scale_fill_manual(values = status_colours) + 
-  labs(title = "PRS in Cases and Controls", 
-       x = "Status", 
-       y = "Polygenic Risk Score (PRS)") +  
-  theme_classic(base_size = 13) + 
-  theme(legend.position = "none") 
+prs_boxplot <- ggplot(
+  prs_plot_data,
+  aes(
+    x = status_label,
+    y = PRS,
+    fill = status_label
+  )
+) +
+  geom_boxplot(
+    width = 0.6,
+    alpha = 0.9
+  ) +
+  scale_fill_manual(values = prs_plot_colours) +
+  scale_y_continuous(
+    limits = c(0, NA),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  labs(
+    title = "PRS in Cases and Controls",
+    x = "Disease status",
+    y = "Polygenic Risk Score (PRS)"
+  ) +
+  theme_classic(base_size = 13) +
+  theme(legend.position = "none")
 ```
 
 ```{r}
@@ -369,13 +391,11 @@ prs_boxplot
 
 Step 8B: Boxplot
 
-The boxplot shows a higher median PRS in cases (1.171) than controls (0.868).
+PD cases had a higher median PRS (1.171) than controls (0.868) and greater variability (SD 0.452 versus 0.357).
 
-The case group has a wider spread of PRS values. This is consistent with its higher standard deviation (0.452) compared with the control group (0.357).
+The original analysis identified three high-PRS boxplot outliers among cases and two among controls.
 
-The boxplot also shows three high PRS outliers in cases and two in controls.
-
-Overall, the case group has higher PRS values and greater variation than the control group.
+The distributions still overlap, so the observed differences represent group-level patterns rather than a diagnostic threshold.
 
 ## Question 3: Step 9 - Step 14
 
