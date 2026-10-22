@@ -311,31 +311,6 @@ The shared setup defines the following colour scheme:
 Some plots apply their own scales, including continuous gradients for
 luminescence, PRS, and age.
 
-## Reproducibility notes for the current draft
-
-The current `compiled.qmd` requires review before a clean-session render.
-
-1. Package installation occurs inside the shared setup.
-   Consider moving installation to a separate setup step to avoid reinstalling
-   packages during rendering.
-
-2. The shared setup installs `edgeR` and `limma` but does not explicitly
-   attach them. Add `library(edgeR)` and `library(limma)`.
-
-3. `RNAseq123`, `here`, and `rstatix` are loaded later in the document but
-   are not included in its initial installation block.
-
-5. The drug-screen answer references `row_model` and `col_model`, but their
-   definitions are not present in the uploaded document. Define these models
-   before that answer chunk.
-
-6. Some headings lack a space after the Markdown heading marker, including
-   parts of the integration section. Standardise these headings and add an
-   explicit level-one clinical-trial heading.
-
-Render from a fresh R session to check that all objects are created within
-the document rather than inherited from an existing workspace.
-
 ## Limitations
 
 - The RNA-seq and clinical-trial cohorts are small.
