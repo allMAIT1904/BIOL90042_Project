@@ -106,7 +106,7 @@ theme_set(
 
 A polygenic risk score (PRS) combines information from multiple genetic variants to estimate a person's genetic risk of developing a disease. A higher PRS suggests a higher genetic risk of Parkinson's disease (PD), but it cannot predict whether a person will develop PD.
 
-In this analysis, we used genotype data from 15 genetic loci and GWAS beta values. For each locus, the allele dosage (0, 1 or 2) was multiplied by its beta value. These values were then added together to calculate a PRS for each participant.
+This analysis used genotype data from 15 genetic loci and GWAS beta values. For each locus, the allele dosage (0, 1 or 2) was multiplied by its beta value. These values were then added together to calculate a PRS for each participant.
 
 ### Aims
 
