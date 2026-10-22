@@ -1878,7 +1878,7 @@ gait_long %>%
 
 ```
 
-In the QQ plots, the points follow the reference lines quite well, suggesting normal orientation data within each patient, although the divergence at the tails suggest some minor departure from normality. The Shapiro-Wilk tests generally yield p \> 0.05, which does not provide evidence against the null hypothesis that the data is normal. While the p-values are quite low for a few patients (the lowest being 0.07 for d003), the fact that the Shapiro-Wilk tests are consistent with normal data for the majority of the 16 patients suggests that sd(orientation) is an appropriate proxy for balance and gait smoothness.
+In the QQ plots, the points follow the reference lines quite well, suggesting normal orientation data within each patient, although the divergence at the tails suggest some minor departure from normality. The Shapiro-Wilk tests generally yield p \> 0.05, which does not provide evidence against the null hypothesis that the data is normal. While the p-values are quite low for some patients (the lowest being 0.07 for d003), the fact that the Shapiro-Wilk tests and QQ plots are consistent with normal data for the majority of the 16 patients suggests that sd(orientation) is an appropriate proxy for balance and gait smoothness.
 
 ------------------------------------------------------------------------
 
