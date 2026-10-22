@@ -108,8 +108,6 @@ This analysis uses the genotype data and GWAS beta values. I calculated a PRS fo
 
 Calculate a PRS for each participant. Which participant has the highest PRS? The lowest?
 
-### Step 1: Inspect the genotype and GWAS datasets
-
 Check the two datasets. Make sure the locus names can be matched.
 
 ```{r}
