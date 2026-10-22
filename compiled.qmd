@@ -134,6 +134,10 @@ ca_co_genotypes
 gwas_top_hits
 ```
 
+**Result interpretation:**
+
+The analysis uses 15 genetic loci with their corresponding GWAS beta values. Each locus is identified by a code in the dataset. These beta values are used to calculate the PRS for each participant.
+
 ### Step 2: Reshape the genotype data
 
 ```{r}
