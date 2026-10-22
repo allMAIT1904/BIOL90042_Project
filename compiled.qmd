@@ -42,6 +42,7 @@ The report uses one visual language throughout:
 install.packages(c(
   "tidyverse",
   "pheatmap",
+  "rstatix",
   "ggrepel",
   "broom",
   "patchwork",
@@ -64,6 +65,7 @@ library(broom)
 library(patchwork)
 library(ggbeeswarm)
 library(knitr)
+library(rstatix)
 
 # Load every dataset once from paths relative to the R project root.
 load("data/prs.Rda")
@@ -1565,39 +1567,6 @@ Five compounds were identified as significantly associated with increased neuron
 - Strong candidates should subsequently be tested in neurons derived from additional healthy donors and patients with Parkinson's disease.
 
 ## Preparatory steps
-
-### Load packages and read in gait data
-
-```{r}
-#| message: false 
-#| warning: false
-
-# run here:i_am() to establish the project root
-here::i_am("clinical_trial/group_project_part4_draft2.qmd")
-
-# load packages required for analysis
-library(tidyverse)
-library(here)
-library(rstatix)
-library(ggbeeswarm)
-
-
-#| message: false 
-#| warning: false
-
-# run here:i_am() to establish the project root
-here::i_am("clinical_trial/group_project_part4_draft2.qmd")
-
-# load packages required for analysis
-library(tidyverse)
-library(here)
-library(rstatix)
-library(ggbeeswarm)
-
-# load in clinical trial data
-load(here("data", "gait.Rda")) # load in gait data
-
-```
 
 ### Tidy up the gait data
 
