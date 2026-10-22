@@ -1,0 +1,408 @@
+---
+title: "Coding_Project_RNASeq"
+format: html
+editor: visual
+---
+
+## Installing RNA-Seq Specific Packages
+
+```{r}
+# BiocManager allows us to install Bioconductor packages
+install.packages("BiocManager")
+# RNAseq123 has edgeR, limma and other things we need
+BiocManager::install("RNAseq123")
+# pheatmap is used for making nice heatmaps
+install.packages("pheatmap")
+# ggrepel is used to label DE genes on plots
+install.packages("ggrepel")
+```
+
+## Loading in Packaged and Datasets
+
+```{r}
+# load the packages we need 
+library(tidyverse)
+library(RNAseq123)
+# If pheatmap cant be found, re-run install.packages("pheatmap") and install.packages("ggrepel"), then try again 
+library(pheatmap)
+library(ggrepel)
+
+# load() restores the objects save in each .Rda file 
+dge <- load("Desktop/r_course/data/rnaseq.Rda")
+rnaseq_info <- load("Desktop/r_course/data/rnaseq_gene_info.Rda")
+
+```
+
+## Checking the Datasets
+
+```{r}
+head(dge$samples) # Determining the samples in the study 
+head(dge$genes) # Determining the genes ?
+head(dge$counts) # Determining the counts in the dataset
+
+dge$samples$group
+class(dge$samples$group) #Looking at the groups of the samples in dge, we are able to see that they are in the class factors 
+
+# Specifying the order of the levels, setting the 'control' group first to ensure accurtae downstream analysis and plotting
+factor(dge$samples$group, levels = c("control", "case"))
+```
+
+## The RNA Sequencing Pipeline
+
+**Filtering low count genes**
+
+```{r}
+# Filtering out lowly expressed genes to ensure reliable testing 
+keep <- filterByExpr(dge)
+
+# Using table() to create a summary to determine how many genes we will keep 
+table(keep)
+# The number that fall within TRUE we will keep and FALSE will be filtered out 
+proportions(table(keep))
+```
+
+Upon filtering 204 genes were removed and 9896 of 10,100 genes were kept. This meant that 2% of genes were filtered out and 98% of genes were retained.
+
+```{r}
+# Performing the filtering using the square brackets 
+dge <- dge[keep, , keep.lib.sizes = FALSE]
+# checking the dimensions of the count matrix AFTER filtring to see if the number of genes have been reduced 
+dim(dge$counts) # 10100 16 now 9896 16
+```
+
+**Normalisation**
+
+```{r}
+# TMM corrects for differences in composition between samples, reducing bias
+dge <- normLibSizes(dge, method = "TMM") 
+
+# Normalisation factors are then calculated for each sample and puts it in the samples datafram of the DGE list
+dge$samples # All normalisation factors are close to 1 across all samples, suggetsing minimal differences in RNA composition between samples
+```
+
+**Setting up the Design Matrix**
+
+```{r}
+design <- model.matrix(~ 0 + group, data = dge$samples)# just on sample as this contains all the meta data and covariates. 
+design
+```
+
+Output columns represent the groups, with the values being either 1 representing the sample being a member of either the control or case group or 0 in which the sample is not a member of that group.
+
+**Setting up the Contrasts Matrices**
+
+```{r}
+# rename the columns of the design matrix to be just 'control' instead of 'groupcontrol'and likewise with 'groupcase' to be just 'case'
+colnames(design) <- c("control","case")
+
+# Now, we will make the contrast matrix
+contr_matrix <- makeContrasts(
+  # our pairwise comparisons will be between are control and case groups
+  casevscontrol = "case - control",
+  levels = design)
+
+contr_matrix
+```
+
+**\*\* Adding genes name to the DGE list**
+
+```{r}
+gene_info <- left_join(
+  dge$genes, # left table: column genes
+  entrez_genename_key, # right table: lookup with names 
+  by =  join_by (genes == entrezid)) # match genes in the left table to entrezid on the right 
+colnames(gene_info)
+
+gene_info <- gene_info |> dplyr::rename(SYMBOL = gene_name)
+colnames(gene_info) # To check 
+
+rownames(gene_info) <- rownames(dge$counts) # join resets row names, put the IDs back
+dge$genes <- gene_info
+head(dge$genes) # To check 
+```
+
+**Fitting the Model**
+
+```{r}
+# run voom() and then fit linear model
+
+# We will then proceed to use the voom() function of limma to converts our raw counts to log-cpm values
+# This will involve using the library sizes and normalisation factors calculated during the filtering and normalisation steps 
+v <- voom (dge, design, plot = TRUE)
+
+# After running voom, we will fit our linear model on voom output 
+vfit <- lmFit(v)
+head(vfit$coefficients) # Check coefficients
+
+# We can then use contrasts.fit() to calculate coefficients for each contrast specified in the contr_matrix.  
+vfit <- contrasts.fit(vfit, contrasts = contr_matrix)
+head(vfit$coefficients)
+
+# Conducting our statistical testing 
+efit <- eBayes(vfit)
+dt <- decideTests(efit) # Using decideTests to conduct for multiple testing 
+summary(dt)
+```
+
+```{r}
+# Using the function topTable() to obtain more information on the differentially expressed gene for contrast between control vs case group
+top <- topTable(efit, coef = "casevscontrol", n = Inf)
+
+# to make the dataframe print nicer, let's convert it to a tibble
+top_tibble <- as_tibble(top)
+top_tibble
+```
+
+**Question 1:** Which genes are differentially expressed between PD cases and healthy controls? Please also visualise your DE results with appropriate plot(s).
+
+**MA plot**
+
+```{r}
+ma_plot_data <- tibble(
+  logFC = efit$coefficients[, "casevscontrol"],
+  AvgExpr = efit$Amean,
+  status = factor(as.numeric(dt[, "casevscontrol"])),
+  gene = efit$genes$SYMBOL,
+  p_value = efit$p.value[, "casevscontrol"]
+)
+
+# Using ggplot and tibble prepared 
+ma_plot_data |> 
+  ggplot(aes(x = AvgExpr, y = logFC, col = status)) +
+  geom_point()
+
+# Refining the MA plot 
+ma_plot_data_fct <- ma_plot_data |> 
+  mutate(
+    # replace status with a new factor
+    status = factor(
+      status,
+      # levels (order is not DE, down, up)
+      levels = c(0, -1, 1),
+      labels = c("Not DE", "Down", "Up")
+    )
+  )
+
+# find the top 15 most significant genes to label
+top_de_genes <- ma_plot_data_fct |> 
+  slice_min(n = 15, p_value)
+
+# a named vector to colour the points by 
+scale_cols <- c(
+  "Not DE" = "black",
+  "Down" = "#1a0099",
+  "Up" = "#990000"
+)
+
+ggplot(ma_plot_data_fct, aes(x = AvgExpr, y = logFC, col = status)) +
+  geom_point(
+    data = ma_plot_data_fct |>  filter(status == "Not DE"), size = 0.1) +
+  geom_point(data = ma_plot_data_fct |>  filter(status != "Not DE"), size = 1) +
+  geom_label_repel(
+    data = top_de_genes,
+    aes(label = gene, col = NULL),
+    max.overlaps = 20,
+    show.legend = FALSE
+  ) +
+  scale_colour_manual(values = scale_cols) + 
+  theme_classic(base_size = 18) +
+  labs(title = "MA plot: PD cases vs healthy controls",
+       x = "Average log expression", y = "log2 fold change (PD vs control)")
+```
+
+Each data point is representative of a gene, with its average expression on the x axis and its fold change on the y-axis. Most genes cluster around zero, which is expected when most genes do not change and normalisation has worked, representing non differentially expressed genes and no bias with expression levels. Whilst differentially expressed genes sit clearly above or below the clustering.
+
+The genes higher in PD (for example IRGM, HDAC6, PRKN) shown upregulation. Whilst the genes lower in PD (PDE7B, RIT2, LARGE1) have shown a signficant down regulation in the genes expressed.
+
+**Volcano Plot**
+
+```{r}
+ggplot(ma_plot_data_fct, aes(x = logFC, y = -log10(p_value), col = status)) +
+  geom_point(
+    data = ma_plot_data_fct |> filter(status == "Not DE"),
+    size = 0.1
+  ) +
+  geom_point(data = ma_plot_data_fct |> filter(status != "Not DE"), size = 1) +
+  geom_label_repel(
+    data = top_de_genes,
+    aes(label = gene, col = NULL),
+    max.overlaps = 20,
+    show.legend = FALSE
+  ) +
+  scale_colour_manual(values = scale_cols) +
+  theme_classic() +
+  labs(title = "Volcano plot for PD cases vs Healthy controls",
+       x = "log2 fold change (PD vs control)", y = "-log10 p-value")
+        
+```
+
+UVRAG and HERC1 appears highest on the right side of the volcano plot, demonstrates a low p value reflects strong statistical evidence of a genuine difference, even though the effect size is modest, whereas PDE78, LARGE1 and RIT2 demonstrate larger fold changes, though this could easily reflect noisy estimation (e.g. from a highly variable gene) rather than a real, reproducible effect as a result of weak evidence or low counts within the sample.
+
+**Question 2:** Which gene ontology families do the DE genes belong to?
+
+```{r}
+de_genes <- top_tibble |> 
+  filter(adj.P.Val < 0.05) |> 
+  mutate(direction = if_else(logFC > 0, "Up in PD", "Down in PD"))
+
+# Join to the GO table 
+de_go <- inner_join(de_genes, gene_ontology, 
+                    by = join_by(genes == entrezgene_id)) # inner_join keeps only DE genes that appear in the GO table and adds the GO term 
+
+de_go |> arrange(desc, SYMBOL) |> dplyr::select(desc, SYMBOL, logFC, adj.P.Val)
+
+# Counts genes per go term and direction 
+de_go |> count(desc,direction)
+```
+
+Every differentially expressed genes belong to one of the two gene ontology families. The genes upregulated in PD cases are all in autophagy (for example PRKN, ATG5, and VPS4A), and the genes downregulated in PD cases are all in synaptic transmission (for example RIT2, CDK5, and APBA3). This came from joining the differentially expressed genes to the gene_ontology table by Entrez ID and counting genes per term, split by direction.
+
+Higher autophagy genes could be a result of neurons compensating for protein build up or mitochondrial stress. While on the other hand, reduction synaptic genes is a result of reduced neuronal signalling.
+
+**Question 3:** Is the clustering of samples by gene expression consistent with their disease status as cases and controls?
+
+**MDS plot**
+
+```{r}
+#visualising our data prior to statistical testing 
+plotMDS(dge)
+# Specifying the name of the group the samples belong to by labelling 
+plotMDS(dge, labels = dge$samples$group)
+```
+
+From the MDA plot above, Dimension 1 explains 9 % of the variation, seperating cases 1 to the right side of the plot from everything else whilst controls 1 to 8 sit on the left. Though cases 6-8 appears to cluster together close to the controls, suggesting heterogeneity between patients as similar gene expression profiles fall within the same phenotype group.
+
+**Creating a Heatmap**
+
+```{r}
+# The 30 most significant genes for our contrast 
+top_genes <- bind_rows(
+  topTable(efit, coef = "casevscontrol", n = 30)
+) |> 
+  dplyr::select(genes, SYMBOL)  |> 
+  distinct() # remove duplicates 
+
+# filter the count matrix to find just those genes and label rows with genes names
+top_gene_expr <- cpm(dge, log = TRUE)[as.character(top_genes$genes), ]
+rownames(top_gene_expr) <- top_genes$SYMBOL
+
+# Annotation information for the heatmap 
+sample_anno <- dge$samples |> 
+  dplyr::select(group)
+# ann <- data.frame(Group = dge$samples$group, row.names = colnames(top_gene_expr))
+heatmap <- pheatmap(
+    top_gene_expr, 
+    scale = "row",
+    annotation_col = sample_anno,
+    border_colour = NA, 
+    cluter_rows = TRUE,
+    cluster_cols = TRUE,
+    show_rownames = TRUE,
+    show_colnames = TRUE, 
+    fontsize_row = 6,
+    annotation_colors = list(Group = c(control = "#1B9E77", case = "#D95F02")),
+    main = "??", fontsize = 13)
+```
+
+The heatmap shows the top 30 genes in the datasets, which include all differentially expressed genes, with samples clustered by their expression. The branches along the top show which samples have similar expression. Based on this dataset, cases 1 to 5 form one branch, whilst all eight controls form another. Interestingly, cases 6, 7 and 8 form a third small branch next to the controls, suggesting that expression may be quite close to control levels and partly consistent with the disease status, matching the MDS plots. This suggests that differentially expressed genes are driven mainly by cases 1 to 5.
+
+## Bringing it together
+
+Question 5.2. Do any variables other than gene expression distinguish the RNA-seq cases from controls? (Hint: try colouring points on your MDS plot by other information you have about the donors, from the other datasets)
+
+```{r}
+mds_result <- plotMDS(dge, plot = FALSE)
+mds_result
+```
+
+```{r}
+# PRS data from part 1
+load("prs.Rda")
+prs_long <- ca_co_genotypes %>% #ca_co_genotypes is within the prs data
+  pivot_longer( 
+    # Select the 15 locus columns.
+    cols = starts_with("locus_"),
+    # Create a column for locus names.
+    names_to = "locus",
+    # Create a column for allele dosage.
+    values_to = "dosage" 
+  ) 
+
+# Add GWAS beta values to the genotype data.
+prs_long_new <- prs_long %>%  
+  left_join(  
+    gwas_top_hits %>% dplyr::select(locus, beta),   # two colons
+    by = "locus"  
+  )
+
+# Dosage is coded as 0, 1 or 2 for each locus.
+# Multiply the dosage by the GWAS beta value.
+prs_weighted <- prs_long_new %>%  
+  # Calculate the weighted score for each locus.
+  mutate(weighted_risk = dosage * beta)  
+
+# Add the weighted scores across all 15 loci.
+# Use the weighted data.
+prs_final <- prs_weighted %>%
+  summarise(
+    PRS = sum(weighted_risk),
+    .by = c(donorid, status)
+  )
+```
+
+```{r}
+mds_tibble <- tibble(
+  x = mds_result$x,
+  y = mds_result$y
+)
+
+ggplot(mds_tibble, aes(x = x, y = y)) +
+  geom_point()
+```
+
+```{r}
+mds_tibble <- tibble( # x and y coordinates are in a tibble to make a scatterplot
+  x       = mds_result$x,
+  y       = mds_result$y,  
+  sample  = colnames(dge),
+  group   = dge$samples$group
+)
+  
+  dim1_var_explained <- round(mds_result$var.explained[1] * 100)
+  dim2_var_explained <- round(mds_result$var.explained[2] * 100)
+
+ggplot(mds_tibble, aes(x = x, y = y))+
+  geom_text(aes(label = group)) + 
+  labs(
+    x = paste0("Leading logFC dim 1 (", dim1_var_explained, "%)"),
+    y = paste0("Leading logFC dim 2 (", dim2_var_explained, "%)")
+  )
+```
+
+```{r}
+mds_tibble <- tibble( # x and y coordinates are in a tibble to make a scatterplot
+  x       = mds_result$x,
+  y       = mds_result$y,  
+  sample  = colnames(dge),
+  group   = dge$samples$group,
+  donorid = dge$samples$donorid
+) |> 
+  left_join(prs_final |> dplyr::select(donor_id, PRS), by = "donorid")
+
+dim1_var_explained <- round(mds_result$var.explained[1] * 100)
+dim2_var_explained <- round(mds_result$var.explained[2] * 100)
+
+ggplot(mds_tibble, aes(x = x, y = y, col = PRS, shape = group))+
+  geom_point(size = 4) + 
+  geom_text_repel(aes(label = sample), show.legend = FALSE) + 
+  theme_classic(base_size = 18)
+  labs(
+    title = "MDS plot coloured by polygenic risk score", 
+    x = paste0("Leading logFC dim 1 (", dim1_var_explained, "%)"),
+    y = paste0("Leading logFC dim 2 (", dim2_var_explained, "%)"),
+    colour = "PRS",
+    shape = "Group"
+  )
+```
+
+Dimension 1 explains 9% of the variation and separates two clusters as briefly discussed in Question 3. On the left are cases 1 to 5, and on the right are all 8 control samples and cases 6 to 8. The left cluster has higher polygenic risk scores, with case 5 being the highest, while the controls and cases 6 to 8 demonstrating a lower score. Despite cases 6 to 8 having PD, their expression and genetic risk are similar to the controls. Overall, dimensions 1 and 2 together explain only 16% of the variance, so the pattern is modest in a noisy dataset. Based on this information, genetic risk distinguishes cases from controls. PRS was significantly higher across 5 out of the 8 cases, with separation from the controls on the MDS plot. Though the three low PRS cases may have PD for cases not capture by these variants.

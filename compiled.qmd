@@ -1574,6 +1574,20 @@ library(here)
 library(rstatix)
 library(ggbeeswarm)
 
+
+```{r}
+#| message: false 
+#| warning: false
+
+# run here:i_am() to establish the project root
+here::i_am("clinical_trial/group_project_part4_draft2.qmd")
+
+# load packages required for analysis
+library(tidyverse)
+library(here)
+library(rstatix)
+library(ggbeeswarm)
+
 # load in clinical trial data
 load(here("data", "gait.Rda")) # load in gait data
 
@@ -1677,6 +1691,76 @@ summary(gait_summary$median)
 
 # check if patients' SD and RMS of orientation are approximately equal
 (gait_summary$sd - gait_summary$rms) %>% summary()
+
+```
+
+From the above summaries, we can conclude that patients' mean and median orientations are typically within 1 degree of zero and usually even less, indicating that their orientation varies around a midpoint of being vertical. Additionally, patients' RMS and SD of orientation are very similar, with the largest difference between them being only 0.017 degrees, which also supports patients' orientation oscillating around zero degrees.
+
+For a measure of spread to use as a proxy for patients' balance and gait smoothness, we considered mean and median absolute values, range, IQR, SD, and RMS of their orientation measurements overall the 700 seconds measured. While measurements of gait smoothness or balance in the literature are usually more complex than the one used here, the RMS is often used (e.g. RMS centre of mass or pressure). Since SD and RMS were almost identical and SD is more widely understood and used, we took the SD of patients' orientation over time (sd(orientation)) as a proxy for balance and gait smoothness.
+
+SD is an appropriate measure of spread when there are minimal outliers and the data largely follows a normal distribution. This can first be investigated using a hisogram of the orientation measurements for each patient.
+
+### Check that standard deviation of orientation is an appropriate measure of spread
+
+```{r}
+#| fig-width: 10
+#| fig-height: 8
+
+# plot a histogram of orientation for each patient
+ggplot(data = gait_long, aes(x = orientation_deg)) + 
+  geom_histogram(bins = 18) + # plot a histogram - bins decided with Rice's rule
+  # make a separate plot for each patient
+  facet_wrap(~donorid) +
+  # add a reference line at 0 degrees - the expected centre
+  geom_vline(xintercept = 0, colour = 'black', linetype = 2, linewidth = 0.6) +
+  theme_bw(base_size = 16) +
+  theme(strip.background = element_rect(fill = 'white', colour = 'black'),
+        strip.text = element_text(colour = 'black')) +
+  labs(title = "Distribution of orientation measurements for 16 clinical trial participants", x = "Vertical orientation (degrees off-axis)", y = "Count")
+
+```
+
+It appears from the histograms that each patient's data is roughly symmetrical. The normality can be tested using QQ plots and a Shapiro-Wilk test.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 8
+
+# plot a QQ plot of orientation measurements for each patient
+ggplot(data = gait_long, aes(sample = orientation_deg)) + 
+  geom_qq() + # plot a qq plot with a reference normal distribution
+  geom_qq_line() + # add a reference line
+  # make a separate plot for each patient
+  facet_wrap(~donorid, scales = "free") +
+  theme_bw(base_size = 16) +
+  theme(strip.background = element_rect(fill = 'white', colour = 'black'),
+        strip.text = element_text(colour = 'black')) +
+  labs(title = "QQ plots testing for the normality of orientation measurements for 16 clinical trial participants", x = 'Theoretical quantiles (normal distribution)', y = 'Sample quantiles (orientation (degress off-axis))')
+
+```
+
+```{r}
+
+gait_long %>% 
+  group_by(donorid) %>% 
+  shapiro_test(orientation_deg) %>% 
+  ungroup()
+
+```
+
+In the QQ plots, the points follow the reference lines quite well, suggesting normal orientation data within each patient, although the divergence at the tails suggest some minor departure from normality. The Shapiro-Wilk tests generally yield p \> 0.05, which does not provide evidence against the null hypothesis that the data is normal. While the p-values are quite low for a few patients (the lowest being 0.07 for d003), the fact that the Shapiro-Wilk tests are consistent with normal data for the majority of the 16 patients suggests that sd(orientation) is an appropriate proxy for balance and gait smoothness.
+
+------------------------------------------------------------------------
+
+## Question 2: Comparing the new compound to standard of care
+
+*Is there a statistically significant difference in gait between participants receiving L-DOPA and the new compound? Ensure that you check your assumptions.*
+
+### Visualise the distribution of orientation standard deviation for each group
+
+First, we can visually explore the distribution of sd(orientation) between treatment groups with a box plot and jitter plot.
+
+```{r}
 
 ```
 
@@ -1856,6 +1940,7 @@ gait_summary %>%
   summarise(variance = var(sd),
             .by = treatment)
 ```
+
 
 ```{r}
 
