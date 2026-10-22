@@ -18,9 +18,6 @@ project questions.
 An integration section links genetic risk, gene expression, compound targets,
 and clinical outcomes using the identifiers available in the supplied datasets.
 
-These are simulated educational datasets. Findings should not be interpreted
-as evidence of clinical efficacy or validated therapeutic mechanisms.
-
 ## Project files and required data
 
 The compiled report expects the following files:
