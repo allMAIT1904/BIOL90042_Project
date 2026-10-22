@@ -33,7 +33,7 @@ The report uses one visual language throughout:
 # Shared setup
 
 ```{r}
-# label: project-setup
+#| label: project-setup
 
 # Load packages
 library(tidyverse)
