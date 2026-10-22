@@ -104,7 +104,7 @@ theme_set(
 
 ### Background
 
-A polygenic risk score (PRS) combines information from multiple genetic variants to estimate a person's genetic risk of developing a disease. A higher PRS suggests a higher genetic risk of Parkinson's disease (PD), but it cannot predict whether a person will develop PD.
+A polygenic risk score (PRS) combines information from multiple genetic variants to summarise genetic predisposition to a disease. A higher PRS indicates a higher relative genetic risk of Parkinson's disease (PD) based on the variants included in the score, but it does not determine whether an individual will develop PD.
 
 This analysis used genotype data from 15 genetic loci and GWAS beta values. For each locus, the allele dosage (0, 1 or 2) was multiplied by its beta value. These values were then added together to calculate a PRS for each participant.
 
@@ -233,7 +233,7 @@ nrow(prs_final)
 
 **Result interpretation:**
 
-The original dataset contains 300 participants, each with one calculated PRS. A higher score reflects a higher weighted genetic risk score under the chosen GWAS effect estimates, not a diagnosis or absolute disease probability.
+The dataset contains 300 participants, with one PRS calculated for each participant.
 
 ### Step 6: Find the highest and lowest PRS
 
@@ -267,7 +267,7 @@ prs_lowest
 
 **Result interpretation:**
 
-In the original analysis, participant d003 (PD case) had the highest PRS (2.824), while participant d167 (PD case) had the lowest PRS (0.157). These values describe the individuals' relative genetic scores, not their absolute probabilities of disease.
+Participant d003 (PD case) had the highest PRS (2.824), while participant d167 (PD case) had the lowest PRS (0.157).
 
 ## Question 2: Step7-Step8
 
@@ -314,7 +314,7 @@ The higher average PRS among cases is consistent with a greater burden of the we
 
 ### Step 8: Visualise and Compare PRS Distributions Between Case and Control Groups
 
-#### 8A: Make histograms
+#### 8A: Create Histograms to Compare PRS Distributions
 
 Histograms show the shape, spread and skewness of PRS distributions.
 
@@ -343,13 +343,13 @@ prs_histogram
 
 Step 8A: Histogram
 
-Both histograms show a single main peak and some right skew, with greater right skew in controls in the original report.
+Both histograms show a single main peak and some right skew, with greater right skew in controls.
 
 The case distribution extends across a wider PRS range and is shifted towards higher values, although the two groups overlap.
 
 This is consistent with higher relative genetic predisposition among PD cases as measured by this PRS.
 
-#### 8B: Make a boxplot
+#### 8B: Create a Boxplot to Compare PRS Distributions
 
 A boxplot makes it easier to compare medians, variability and potential outliers.
 
@@ -391,7 +391,7 @@ Step 8B: Boxplot
 
 PD cases had a higher median PRS (1.171) than controls (0.868) and greater variability (SD 0.452 versus 0.357).
 
-The original analysis identified three high-PRS boxplot outliers among cases and two among controls.
+The analysis identified three high-PRS boxplot outliers among cases and two among controls.
 
 The distributions still overlap, so the observed differences represent group-level patterns rather than a diagnostic threshold.
 
@@ -479,7 +479,7 @@ prs_qqplot
 
 **Result interpretation:**
 
-The original Q-Q plots indicate that cases lie closer to the reference line, while controls show greater departures, especially in the upper tail.
+The Q-Q plots indicate that cases lie closer to the reference line, while controls show greater departures, especially in the upper tail.
 
 This suggests that normality is less plausible for the control group.
 
@@ -648,7 +648,9 @@ The null hypothesis (H0) was that cases and controls had equal mean PRS. The alt
 
 Each participant had one PRS value, although independence between participants could not be fully confirmed from the dataset.
 
-Normality was assessed using Q-Q plots and Shapiro–Wilk tests. Controls showed a significant departure from normality (p \< 0.001), while cases did not (p = 0.074).
+Normality was assessed using Q-Q plots and Shapiro–Wilk tests. Controls showed a significant departure from normality (p \< 0.001), while cases showed no statistically significant departure from normality (p = 0.074).
+
+The boxplot also identified potential outliers in both groups. These observations were retained in the analysis. The Wilcoxon rank-sum test was used as a supplementary rank-based comparison.
 
 The residual plot and descriptive statistics suggested greater variation in cases than controls. Therefore, Welch's t-test was selected because it does not require equal variances and is reasonably robust to moderate non-normality with 150 participants per group.
 
@@ -656,7 +658,7 @@ Welch's t-test showed a statistically significant difference in mean PRS (t = 6.
 
 The Wilcoxon rank-sum test also showed a significant difference between the groups (p \< 0.001).
 
-Therefore, the null hypothesis was rejected. PD cases had a significantly higher mean PRS than controls, suggesting greater genetic predisposition to PD based on the variants included in this analysis. However, this association does not establish causation or predict individual disease risk.
+Therefore, the null hypothesis was rejected. PD cases had a significantly higher mean PRS than controls, suggesting greater genetic predisposition to PD based on the variants included in this analysis. However, this association does not establish causation or determine an individual's absolute risk of developing PD.
 
 # RNA-seq of patient iPSC-derived neurons
 
@@ -717,7 +719,7 @@ table(keep)
 proportions(table(keep)) # The same summary as proportions, to show the fraction of genes removed and retained. 
 ```
 
-Filtering removes 204 of the 10,100 genes, leaving 9,896 genes for analysis. This is then subsetted to retain these genes and recalculate the library sizes.
+Filtering removes 204 of the 10,100 genes, leaving 9,895 genes for analysis. This is then subsetted to retain these genes and recalculate the library sizes.
 
 ```{r}
 # Subset the data to the DGEList
