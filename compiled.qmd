@@ -21,7 +21,9 @@ execute:
 
 # Project overview
 
-This report analyses four connected arms of a simulated Parkinson's disease (PD) research program: population genetics, RNA sequencing of patient-derived neurons, drug screening, and a clinical trial.
+Parkinson's disease (PD) is a neurodegenerative disease involving the loss of dopamine-producing neurons in the substantia nigra of the brain. The resulting reduction in dopamine production causes motor symptoms, such as tremor, bradykinesia (slow movement) and an unsteady gait, as well as various non-motor symptoms. The causes of PD are not well-understood, and the current standard of care is the dopamine-replacement therapy L-DOPA, which helps to manage the motor symptoms of PD.
+
+This report analyses four connected arms of a simulated PD research program: population genetics, RNA sequencing of patient-derived neurons, drug screening, and a clinical trial.
 
 The report uses one visual language throughout:
 
@@ -34,6 +36,25 @@ The report uses one visual language throughout:
 
 ```{r}
 #| label: project-setup
+#| message: false 
+#| warning: false
+
+install.packages(c(
+  "tidyverse",
+  "pheatmap",
+  "rstatix",
+  "ggrepel",
+  "broom",
+  "patchwork",
+  "ggbeeswarm",
+  "knitr"
+), repos = "https://cloud.r-project.org")
+
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager", repos = "https://cloud.r-project.org")
+}
+
+BiocManager::install(c("edgeR", "limma"), ask = FALSE, update = FALSE)
 
 # Load packages
 library(tidyverse)
@@ -44,6 +65,7 @@ library(broom)
 library(patchwork)
 library(ggbeeswarm)
 library(knitr)
+library(rstatix)
 
 # Load every dataset once from paths relative to the R project root.
 load("data/prs.Rda")
@@ -78,9 +100,25 @@ theme_set(
 
 # Population genetics
 
-This analysis uses the genotype data and GWAS beta values. I calculated a PRS for each participant. I then compared PD cases and healthy controls.
+## Introduction
+
+### Background
+
+A polygenic risk score (PRS) combines information from multiple genetic variants to estimate a person's genetic risk of developing a disease. A higher PRS suggests a higher genetic risk of Parkinson's disease (PD), but it cannot predict whether a person will develop PD.
+
+In this analysis, we used genotype data from 15 genetic loci and GWAS beta values. For each locus, the allele dosage (0, 1 or 2) was multiplied by its beta value. These values ​​were then added together to calculate a PRS for each participant.
+
+### Aims
+
+1.  Calculate a PRS for each participant and identify the highest and lowest scores.
+
+2.  Compare the PRS distributions between PD cases and healthy controls.
+
+3.  Test whether there is a statistically significant difference in mean PRS between the two groups.
 
 ## Question 1: Step1-Step6
+
+### Step 1: Inspect the genotype and GWAS datasets
 
 Calculate a PRS for each participant. Which participant has the highest PRS? The lowest?
 
@@ -881,21 +919,19 @@ The heatmap shows the top 30 genes in the datasets, which include all differenti
 
 # Drug screening
 
-## Aim
+## Background
 
-This report analyses a high-throughput drug screen performed in healthy donor iPSC-derived dopaminergic neurons exposed to MPP. MPP causes oxidative stress and mitochondrial dysfunction, providing an in vitro model of Parkinson's disease-related neuronal injury.
+This section analyses a high-throughput drug screen performed in healthy donor iPSC-derived dopaminergic neurons exposed to MPP. MPP causes oxidative stress and mitochondrial dysfunction, providing an in vitro model of Parkinson's disease-related neuronal injury.
 
 Neuronal viability was measured by luminescence in relative light units (RLU). Higher RLU indicates greater apparent neuronal survival after MPP exposure.
 
-This report addresses:
+### Aims
 
-1.  Whether luminescence shows spatial patterns across the 1,536-well plate.
-2.  Which test compounds are associated with increased neuronal viability relative to their chemically matched inactive controls.
-3.  The mechanisms of action and targets of statistically significant compounds.
+1.  Does luminescence show any spatial pattern(s) across the 1,536-well plate.
+2.  Which test compounds are associated with increased neuronal viability relative to their chemically matched inactive controls?
+3.  What are the mechanisms of action and targets of statistically significant compounds.
 
-## Setup
-
-### Inspect input data
+## Inspect input data
 
 ```{r}
 ## plate1 contains luminescence values for each plate well.
@@ -916,6 +952,12 @@ glimpse(plate1)
 glimpse(plate_meta)
 glimpse(compound_dict)
 ```
+
+There should be three dataframes loaded:
+
+1.  'plate1' contains luminescence values in relative light units (RLU).
+2.  'plate_meta' has the compound that is added in each well.
+3.  'compound_dict' contains the enzyme target and mechanism of action for each of the test compounds.
 
 ## Data preparation
 
@@ -1033,6 +1075,8 @@ p_boxplot <- ggplot(plate_long, aes(x = treatment_type, y = rlu, fill = treatmen
 p_density + p_boxplot + plot_layout(widths = c(2, 1))
 ```
 
+Most of the wells have a recorded luminescence between 400-600 RLU, and hence it has been visualized through both a histogram and a box-plot. It is important to note that the boxplot starts at 400 RLU for aesthetic reasons.
+
 ### Plate heatmap
 
 `geom_tile()` places a coloured rectangle at each row-column coordinate. The fill colour represents luminescence intensity.
@@ -1107,7 +1151,11 @@ p_col <- ggplot(col_summary, aes(x = col_number, y = mean_rlu)) +
 p_row + p_col
 ```
 
-## Answer to Question 1
+## Questions
+
+### Question 1
+
+*Using the geom_tile() function, visualise the luminescence across the plate. Do there appear to be any spatial patterns in this data?*
 
 ```{r}
 #| label: answer-q1
@@ -1145,11 +1193,13 @@ cat(
 )
 ```
 
-\*\* Q1: There was no evidence of a systematic linear row or column gradient. Mean RLU ranged from 492.6 to 512.4 across rows and from 486.8 to 512.4 across columns. The estimated slopes were 0.05 RLU per row (p = 0.572 ) and 0.016 RLU per column (p = 0.787 ). The heatmap should also be inspected for isolated or non-linear patterns that these simple trend models cannot capture. \*\*
+There was no evidence of a systematic linear row or column gradient. Mean RLU ranged from 492.6 to 512.4 across rows and from 486.8 to 512.4 across columns. The estimated slopes were 0.05 RLU per row (p = 0.572 ) and 0.016 RLU per column (p = 0.787 ). Additional visual inspection of the heatmap also does not seem to infer any spatial trends.
 
-# Question 2: compound hits
+### Question 2
 
-## Effect estimates
+*Which compounds are statistically significantly associated with increased neuronal viability after MPP exposure? Ensure that you check your assumptions.*
+
+#### Effect estimates
 
 Each active test compound is compared only with its own chemically matched inactive control. The primary effect is the mean RLU difference (test minus control); positive values favour the active compound. Fold change is included as a scale-free descriptive effect.
 
@@ -1195,7 +1245,7 @@ compound_summary %>%
   mutate(across(where(is.numeric), ~ round(.x, 3)))
 ```
 
-## Statistical approach
+#### Statistical approach
 
 A one-sided Welch two-sample *t* test is applied separately to each compound because the research question asks specifically whether mean RLU is higher for the active compound. Welch's test does not require equal group variances. The Benjamini-Hochberg procedure controls the false discovery rate (FDR) across the 192 primary tests. A hit is defined *a priori* as a positive mean difference with BH-adjusted p \< 0.05.
 
@@ -1263,7 +1313,7 @@ n_wilcox_supported <- sum(
 )
 ```
 
-## Assumption checks
+#### Assumption checks
 
 The outcome is continuous and each comparison contains two groups. Equal variance is not required because Welch's correction is used. Normality is assessed within each condition using Q-Q plots and Shapiro-Wilk tests, as taught in the course. With only four observations per group, both diagnostics have limited ability to identify non-normality; the Wilcoxon analysis therefore checks whether the leading conclusions depend strongly on the normality assumption.
 
@@ -1311,7 +1361,7 @@ plate_long %>%
     colour = "black"
   ) +
   facet_wrap(~ compound_id, scales = "free_y", ncol = 4) +
-  scale_colour_manual(values = c("#777777", "#0072B2")) +
+  scale_colour_manual(values = c("#0072B2", "#D55E00")) +
   labs(
     title = "Replicate-level values for leading compounds",
     x = NULL,
@@ -1334,7 +1384,7 @@ plate_long %>%
   geom_qq(size = 1.7) +
   geom_qq_line(linewidth = 0.6) +
   facet_grid(treatment_type ~ compound_id, scales = "free") +
-  scale_colour_manual(values = c("#777777", "#0072B2")) +
+  scale_colour_manual(values = c("#0072B2", "#D55E00")) +
   labs(
     title = "Normality diagnostics for leading compounds",
     x = "Theoretical normal quantiles",
@@ -1368,18 +1418,20 @@ n_normality_flags <- normality_check %>%
   nrow()
 
 cat(
-  "**Assumption assessment.**Of the ", n_diagnostic_groups,
-  "displayed compound-condition groups, ", n_normality_flags,
-  "had Shapiro-Wilk p < 0.05. Regardless of this count, n = 4 per group is ",
-  "too small to establish normality confidently. Welch's correction addresses ",
-  "unequal variance, while the Wilcoxon sensitivity test evaluates whether the ",
-  "main hit direction is supported without a normality assumption. The four ",
-  "wells are technical rather than biological replicates, so inference is ",
+  "**Assumption assessment.**Of the", n_diagnostic_groups,
+  "displayed compound-condition groups,", n_normality_flags,
+  "had Shapiro-Wilk p < 0.05. Regardless of this count, n = 4 per group is",
+  "too small to establish normality confidently. Welch's correction addresses",
+  "unequal variance, while the Wilcoxon sensitivity test evaluates whether the",
+  "main hit direction is supported without a normality assumption. The four",
+  "wells are technical rather than biological replicates, so inference is",
   "restricted to this plate and donor."
 )
 ```
 
-## Multiple-testing results
+Across the 16 displayed compound-condition groups, no Shapiro–Wilk test gave p\<0.05. However, each group contains only four technical replicates, so these tests have very limited power to detect non-normality. Non-significant results should not be interpreted as proof of normality. Welch’s t-test was used as the primary comparison because it tests the mean difference in continuous luminescence between each test compound and its matched control without assuming equal variances. Since the four wells are technical rather than biological replicates from a single donor and plate, inference is limited to this assay run and does not establish reproducible neuroprotection across donors.
+
+#### Multiple-testing results
 
 ```{r}
 #| label: fig-effect-significance
@@ -1419,6 +1471,8 @@ compound_tests %>%
   theme_minimal(base_size = 11) +
   theme(legend.position = "bottom")
 ```
+
+5 compounds appear to be statistically-significant according to the Benjamini-Hochberg (BH) procedure, namely cmpd_5631, cmpd_5706, cmpd_5986, cmpd_6529, cmpd_4996.
 
 ```{r}
 #| label: hit-table
@@ -1460,8 +1514,6 @@ if (nrow(hits_table) > 0) {
 }
 ```
 
-## Answer to Question 2
-
 ```{r}
 #| label: answer-q2
 #| results: asis
@@ -1492,7 +1544,9 @@ if (n_hits == 0) {
 
 5 compound(s) were associated with increased luminescence after BH-FDR correction: cmpd_5631, cmpd_5706, cmpd_5986, cmpd_6529, cmpd_4996. These are plate-level screening hits rather than confirmed neuroprotective compounds because all four observations per condition are technical replicates from one donor.
 
-# Question 3: targets and actions
+### Question 3
+
+*What are the mechanisms of action and targets of the compounds you identify in Q2?*
 
 The compound dictionary supplies the HGNC target symbol, Entrez target ID and whether each test compound acts as an agonist or antagonist. Only compounds meeting the primary FDR hit definition are included below.
 
@@ -1515,6 +1569,8 @@ mechanism_table <- compound_tests %>%
 mechanism_table
 ```
 
+Five compounds were identified as significantly associated with increased neuronal viability after MPP exposure following Benjamini-Hochberg correction (FDR \< 0.05). Four compounds acted as agonists: cmpd_5631 targeted *LARGE1* (difference: 197.50 RLU; 1.389-fold increase; FDR = 0.00135), cmpd_5706 targeted *RIT2* (201.75 RLU; 1.394-fold; FDR = 0.02470), cmpd_5986 targeted *LRP6* (177.25 RLU; 1.344-fold; FDR = 0.03160), and cmpd_4996 targeted *MAPK1* (186.00 RLU; 1.369-fold; FDR = 0.04770). One compound, cmpd_6529, was an antagonist targeting *MFNG* (59.75 RLU; 1.124-fold; FDR = 0.03990).
+
 ## Limitations and next steps
 
 - Four wells per condition are **technical replicates**, not independent biological replicates.
@@ -1524,27 +1580,43 @@ mechanism_table
 - Candidate hits should be retested in independent plates, across a concentration range, with orthogonal assays such as live/dead imaging, neurite analysis, mitochondrial assays, or oxidative-stress readouts.
 - Strong candidates should subsequently be tested in neurons derived from additional healthy donors and patients with Parkinson's disease.
 
-## Preparatory steps
+------------------------------------------------------------------------
 
-### Load packages and read in gait data
+# Clinical trial
+
+## Introduction
+
+This section focuses on the results of a preliminary clinical trial for a potential new PD therapy.
+
+### Background
+
+One of the hit compounds from the PD drug screen is already approved for other indications in Australia. This means that it could more easily be applied for PD treatment than an entirely new compound, if effective in treating PD. A preliminary clinical trial was run to test the efficacy of this drug in treating PD motor symptoms, compared to the standard of care L-DOPA.
+
+16 PD patients were enrolled in the trial and randomly assigned to new compound or L-DOPA groups. Four patients in each trial were additionally randomly assigned to a daily exercise routine, as regular exercise is known to help manage PD motor symptoms.
+
+The effect of each drug on motor symptoms was tested using a smart watch, which measured patients' vertical orientation (in degrees off-axis) while walking during their normal daily activities. Zero degrees indicates an entirely vertical orientation. Patients' orientation was measured every second for 700 seconds. Patients' orientation provides a measure of their balance and the stability of their gait.
+
+### Aims
+
+This section has three main aims:
+
+1.  To determine a suitable summary statistic of the orientation data that serves as a proxy for patients' balance and gait stability over the 700 seconds of measurement.
+2.  To obtain preliminary data on effect of the new drug on balance and gait stability in PD patients, particularly whether it may provide superior management of motor symptoms compared to the current standard of care.
+3.  To determine the effect of the exercise routine and age on balance and gait stablity, and how they affect the relationship between treatment (standard of care vs new compound) and gait stability.
+
+### The dataset
+
+The gait dataset contains the data from the clinical trial and can be viewed with the below code.
 
 ```{r}
-#| message: false 
-#| warning: false
 
-# run here:i_am() to establish the project root
-here::i_am("clinical_trial/group_project_part4_draft2.qmd")
-
-# load packages required for analysis
-library(tidyverse)
-library(here)
-library(rstatix)
-library(ggbeeswarm)
-
-# load in clinical trial data
-load(here("data", "gait.Rda")) # load in gait data
+gait_data
 
 ```
+
+The gait_data dataset contains information on the 16 PD patients enrolled in the trial, including their id (donorid column) treatment group (treatment column; L-DOPA control or new compound), age (age column; in years), and whether they were assigned to the exercise routine (exercise column; y = yes, n = no). It also contains measurements of the patients' vertical orientation (degrees off-axis) for each of the 700 measurements at 1-second intervals (\*\_secs columns).
+
+## Preparatory steps
 
 ### Tidy up the gait data
 
@@ -1644,6 +1716,76 @@ summary(gait_summary$median)
 
 # check if patients' SD and RMS of orientation are approximately equal
 (gait_summary$sd - gait_summary$rms) %>% summary()
+
+```
+
+From the above summaries, we can conclude that patients' mean and median orientations are typically within 1 degree of zero and usually even less, indicating that their orientation varies around a midpoint of being vertical. Additionally, patients' RMS and SD of orientation are very similar, with the largest difference between them being only 0.017 degrees, which also supports patients' orientation oscillating around zero degrees.
+
+For a measure of spread to use as a proxy for patients' balance and gait smoothness, we considered mean and median absolute values, range, IQR, SD, and RMS of their orientation measurements overall the 700 seconds measured. While measurements of gait smoothness or balance in the literature are usually more complex than the one used here, the RMS is often used (e.g. RMS centre of mass or pressure). Since SD and RMS were almost identical and SD is more widely understood and used, we took the SD of patients' orientation over time (sd(orientation)) as a proxy for balance and gait smoothness.
+
+SD is an appropriate measure of spread when there are minimal outliers and the data largely follows a normal distribution. This can first be investigated using a hisogram of the orientation measurements for each patient.
+
+### Check that standard deviation of orientation is an appropriate measure of spread
+
+```{r}
+#| fig-width: 10
+#| fig-height: 8
+
+# plot a histogram of orientation for each patient
+ggplot(data = gait_long, aes(x = orientation_deg)) + 
+  geom_histogram(bins = 18) + # plot a histogram - bins decided with Rice's rule
+  # make a separate plot for each patient
+  facet_wrap(~donorid) +
+  # add a reference line at 0 degrees - the expected centre
+  geom_vline(xintercept = 0, colour = 'black', linetype = 2, linewidth = 0.6) +
+  theme_bw(base_size = 16) +
+  theme(strip.background = element_rect(fill = 'white', colour = 'black'),
+        strip.text = element_text(colour = 'black')) +
+  labs(title = "Distribution of orientation measurements for 16 clinical trial participants", x = "Vertical orientation (degrees off-axis)", y = "Count")
+
+```
+
+It appears from the histograms that each patient's data is roughly symmetrical. The normality can be tested using QQ plots and a Shapiro-Wilk test.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 8
+
+# plot a QQ plot of orientation measurements for each patient
+ggplot(data = gait_long, aes(sample = orientation_deg)) + 
+  geom_qq() + # plot a qq plot with a reference normal distribution
+  geom_qq_line() + # add a reference line
+  # make a separate plot for each patient
+  facet_wrap(~donorid, scales = "free") +
+  theme_bw(base_size = 16) +
+  theme(strip.background = element_rect(fill = 'white', colour = 'black'),
+        strip.text = element_text(colour = 'black')) +
+  labs(title = "QQ plots testing for the normality of orientation measurements for 16 clinical trial participants", x = 'Theoretical quantiles (normal distribution)', y = 'Sample quantiles (orientation (degress off-axis))')
+
+```
+
+```{r}
+
+gait_long %>% 
+  group_by(donorid) %>% 
+  shapiro_test(orientation_deg) %>% 
+  ungroup()
+
+```
+
+In the QQ plots, the points follow the reference lines quite well, suggesting normal orientation data within each patient, although the divergence at the tails suggest some minor departure from normality. The Shapiro-Wilk tests generally yield p \> 0.05, which does not provide evidence against the null hypothesis that the data is normal. While the p-values are quite low for a few patients (the lowest being 0.07 for d003), the fact that the Shapiro-Wilk tests are consistent with normal data for the majority of the 16 patients suggests that sd(orientation) is an appropriate proxy for balance and gait smoothness.
+
+------------------------------------------------------------------------
+
+## Question 2: Comparing the new compound to standard of care
+
+*Is there a statistically significant difference in gait between participants receiving L-DOPA and the new compound? Ensure that you check your assumptions.*
+
+### Visualise the distribution of orientation standard deviation for each group
+
+First, we can visually explore the distribution of sd(orientation) between treatment groups with a box plot and jitter plot.
+
+```{r}
 
 ```
 
@@ -2000,11 +2142,13 @@ Overall, this data provides evidence that the new compound can result in greater
 
 ------------------------------------------------------------------------
 
-# Bringing the study arms together
+#Bringing it together/linking between datasets
 
 The following analyses answer the five integration questions using the objects created in the preceding sections. Joining is performed only through the supplied identifiers: `donorid` for participants, Entrez ID for gene-level links, and HGNC symbols as a readable cross-check.
 
-## Patients represented across arms
+## Question 1
+
+*Using their unique donor IDs, how many patients appear across all four arms of the study?*
 
 The drug screen used one healthy donor but its dataset does not provide a `donorid`. Therefore, exact four-way donor overlap can only be calculated if the screen donor ID is supplied separately. The code below reports the exact overlap among the three donor-indexed datasets and clearly records the limitation for all four arms.
 
@@ -2051,11 +2195,13 @@ four_arm_overlap <- tibble(
 four_arm_overlap
 ```
 
-**Interpretation.** The output gives the number and identities of patients represented in all three donor-indexed arms. The number represented across all four arms cannot be determined from the supplied files because no donor identifier accompanies the drug-screen plate. This should be reported as unavailable rather than treating the drug screen as containing no overlapping donor.
+The output gives the number and identities of patients represented in all three donor-indexed arms. The number represented across all four arms cannot be determined from the supplied files because no donor identifier accompanies the drug-screen plate. This should be reported as unavailable rather than treating the drug screen as containing no overlapping donor.
 
-## Other variables and RNA-seq clustering
+##Question 2
 
-MDS coordinates are joined to PRS and trial metadata to assess whether genetic risk, age, treatment or exercise visually align with the expression-defined sample structure.
+*Do any variables other than gene expression distinguish the RNA-seq cases from controls?*
+
+MDS coordinates can be joined to PRS and trial metadata to assess whether genetic risk, age, treatment or exercise visually align with the expression-defined sample structure.
 
 ```{r}
 #| label: integration-mds-metadata
@@ -2119,11 +2265,17 @@ mds_data %>%
   )
 ```
 
-**Interpretation.** Variables should be described as distinguishing the RNA-seq groups only if their colours show a consistent gradient or separation across the MDS space. PRS is available for all matching genetics participants; age, treatment and exercise are available only for RNA-seq donors who also entered the small clinical trial. Any apparent pattern should therefore be treated as exploratory and not as evidence that the variable caused the expression clustering.
+The MDS plots show clear separation of RNA-seq cases and controls along MDS1: controls cluster at negative MDS1 values, whereas cases cluster at positive MDS1 values. This indicates that disease status is the main factor associated with the observed expression-based separation.
 
-## Drug targets and differential expression
+Among cases, PRS and age show visible gradients across the MDS space: the case furthest to the right has comparatively high PRS and is younger, while cases at lower MDS1 values tend to have lower PRS and are older. However, these patterns are based on few participants and should be considered exploratory.
 
-This analysis intersects statistically supported drug-screen targets with genes meeting the RNA-seq FDR threshold, then attaches the supplied GO annotations.
+Trial treatment and exercise do not show a clear pattern that explains RNA-seq clustering. Most RNA-seq participants lack trial metadata, and the available participants receiving L-DOPA, the new compound, exercise, or no exercise are spread across the case cluster. Therefore, the MDS plots do not provide strong evidence that treatment assignment or exercise status drives the RNA-seq separation.
+
+##Question 3
+
+*Are any of the gene targets of hit compounds from the drug screen, differentially expressed in RNA-seq? Which GO terms are they associated with and what might this tell you about the pathology of PD?*
+
+This analysis intersects statistically significant drug-screen targets with genes meeting the RNA-seq FDR threshold, then attaches the supplied GO annotations.
 
 ```{r}
 #| label: integration-target-de-overlap
@@ -2182,7 +2334,15 @@ if (nrow(hit_targets) == 0) {
 }
 ```
 
-## Relationship between PRS and gait
+Yes. Four targets of compounds that increased luminescence in the drug screen were also significantly differentially expressed in PD-derived neurons: LARGE1, RIT2, LRP6, and MAPK1. All four were expressed at lower levels in PD neurons than in healthy control neurons after multiple-testing correction.
+
+These overlapping targets were annotated with the supplied GO term “synaptic transmission.” Together, the results suggest that PD neurons may have reduced expression of genes involved in neuronal signalling and synaptic function. Notably, the corresponding agonist compounds increased luminescence following MPP exposure, so activating these targets may partially compensate for disease-associated loss of function or support neuronal survival under mitochondrial and oxidative stress.
+
+However, this is a prioritisation result rather than proof of mechanism. The drug screen used technical quadruplicates from one healthy donor, while RNA-seq measured transcript abundance in a separate cohort of PD and control neurons. Drug-induced neuroprotection could result from direct target activation, downstream pathway effects, or off-target activity and validation should therefore include independent donors, dose-response experiments, protein-level target assessment, and an orthogonal viability assay.
+
+##Question 4
+
+*Is there any relationship between the PRS and gait of patients in the clinical trial?*
 
 Standard deviation of vertical orientation is retained as the gait-smoothness outcome from the clinical-trial section. The analysis shows the raw relationship and then adjusts for age, exercise and treatment because these variables were investigated as potential covariates.
 
@@ -2232,9 +2392,11 @@ plot(prs_gait_model, which = 2)
 par(mfrow = c(1, 1))
 ```
 
-**Interpretation.** The Spearman coefficient describes the unadjusted direction and strength of association. In the adjusted model, the PRS coefficient estimates the expected change in gait SD per one-unit increase in PRS while holding treatment, age and exercise constant. Because the clinical trial contains only 16 participants, estimates are imprecise and the model may be overfitted; effect size, uncertainty and diagnostic plots should be considered alongside the p-value.
+The Spearman coefficient describes the unadjusted direction and strength of association. In the adjusted model, the PRS coefficient estimates the expected change in gait SD per one-unit increase in PRS while holding treatment, age and exercise constant. Because the clinical trial contains only 16 participants, estimates are imprecise and the model may be overfitted; effect size, uncertainty and diagnostic plots should be considered alongside the p-value.
 
-## Integrated findings and future research
+## Question 5
+
+*In a paragraph, summarise your findings and suggest directions for future research.*
 
 ```{r}
 #| label: integration-summary
@@ -2255,9 +2417,16 @@ cat(
 )
 ```
 
+Across the donor-indexed datasets, eight participants were represented in the population genetics, RNA-seq and clinical-trial arms; however, exact overlap across all four arms could not be determined because the drug-screen donor ID was unavailable. PD cases had higher polygenic risk scores than controls, while RNA-seq identified PD-associated expression differences involving autophagy- and synaptic-transmission-related genes, with some heterogeneity among cases. Four targets of FDR-significant drug-screen hits were also differentially expressed in the RNA-seq dataset, prioritising these genes and pathways for further investigation. In the clinical-trial subset with PRS data, PRS was not significantly associated with gait variability (Spearman rho = -0.21, p = 0.438). These results are exploratory because the RNA-seq and clinical-trial cohorts were small, and the drug screen comprised technical replicates from a single healthy donor. Future studies should validate promising compounds across independent donor-derived neuronal cultures and dose ranges, confirm neuroprotection using orthogonal viability and functional assays, assess target engagement at RNA and protein levels, and evaluate relationships among genetic risk, gene expression and clinical outcomes in larger, pre-specified multivariable cohorts.
+
 # Reproducibility
 
 ```{r}
 #| label: session-information
 sessionInfo()
+# Save all workspace objects in case it is modified
+save.image(file = "BIOL90042_workspace.RData")
+
+# Restore later
+load("BIOL90042_workspace.RData")
 ```
