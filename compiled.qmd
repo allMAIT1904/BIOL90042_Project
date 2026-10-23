@@ -108,6 +108,7 @@ I also supplied Git error messages concerning:
 Use: I used the outputs as procedural guidance for retrieving collaborators' updates, moving a file between branches, preserving local changes, and addressing Git errors during collaborative editing.
 
 ------------------------------------------------------------------------
+
 ## Nikki Leung 
 
 ### Acknowledgement
@@ -130,7 +131,9 @@ Use: I reviewed the suggestions, tested them in my own code and adapted them to 
 I supplied the error messages encountered when pushing to GitHub and asked how to resolve them. I repeated this process until I was able to resolve the issue.
 
 Use: I used the output to help identify the cause of the rendering error and obtain guidance on defining the required model objects before they were referenced in the document.
+
 ------------------------------------------------------------------------
+
 ## Yihan Yan 
 
 ### Acknowledgement
@@ -150,6 +153,7 @@ I asked ChatGPT how to improve the formatting and appearance of my ggplot2 plots
 Use: I reviewed the suggestions and used them to improve my plots.
 
 ------------------------------------------------------------------------
+
 # Project overview
 
 Parkinson's disease (PD) is a neurodegenerative disease involving the loss of dopamine-producing neurons in the substantia nigra of the brain. The resulting reduction in dopamine production causes motor symptoms, such as tremor, bradykinesia (slow movement) and an unsteady gait, as well as various non-motor symptoms. The causes of PD are not well-understood, and the current standard of care is the dopamine-replacement therapy L-DOPA, which helps to manage the motor symptoms of PD.
