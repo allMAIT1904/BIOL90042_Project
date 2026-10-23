@@ -109,11 +109,11 @@ Use: I used the outputs as procedural guidance for retrieving collaborators' upd
 
 ------------------------------------------------------------------------
 
-## Nikki Leung 
+## Nikki Leung
 
 ### Acknowledgement
 
-I acknowledge the use of Claude to assist with troubleshooting Git and GitHub errors, and to refine my R code for joining datasets and ggplot2 code for the heat map in the RNA sequencing section. 
+I acknowledge the use of Claude to assist with troubleshooting Git and GitHub errors, and to refine my R code for joining datasets and ggplot2 code for the heat map in the RNA sequencing section.
 
 ### Program/app/service used
 
@@ -122,7 +122,8 @@ Claude (Sonnet 5.5 Medium)
 ### Prompts used and use of outputs
 
 #### Code refinement for join and plots
-I supplied my written code chunks and asked Claude to improve and refine the current code for clarity and visualisation. 
+
+I supplied my written code chunks and asked Claude to improve and refine the current code for clarity and visualisation.
 
 Use: I reviewed the suggestions, tested them in my own code and adapted them to the analysis.
 
@@ -134,7 +135,7 @@ Use: I used the output to help identify the cause of the rendering error and obt
 
 ------------------------------------------------------------------------
 
-## Yihan Yan 
+## Yihan Yan
 
 ### Acknowledgement
 
@@ -2410,8 +2411,6 @@ Overall, this data provides evidence that the new compound can result in greater
 ------------------------------------------------------------------------
 
 # Bringing it together/linking between datasets
-
-> > > > > > > c069f98 (formatted analysis, added short answers to questions, modified some code and interpretation)
 
 The following analyses answer the five integration questions using the objects created in the preceding sections. Joining is performed only through the supplied identifiers: `donorid` for participants, Entrez ID for gene-level links, and HGNC symbols as a readable cross-check.
 
