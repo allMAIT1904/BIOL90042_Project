@@ -129,8 +129,7 @@ Use: I reviewed the suggestions, tested them in my own code and adapted them to 
 
 I supplied the error messages encountered when pushing to GitHub and asked how to resolve them. I repeated this process until I was able to resolve the issue.
 
-Use: I used the output to help identify the cause of the rendering error and obtain guidance on defining the required model objects before they were referenced in the document.
-------------------------------------------------------------------------
+---------------------------------------------------------
 ## Yihan Yan 
 
 ### Acknowledgement
